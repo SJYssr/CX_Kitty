@@ -46,22 +46,8 @@ async function main() {
         break;
       }
       
-      // 进入课程页面
       await navigateToCourse(result.page);
-      
-      // 获取课程列表
-      const courses = await fetchCourses(result.page);
-      
-      if (courses.length > 0) {
-        log(`共找到 ${courses.length} 门课程:`, "success");
-        courses.forEach((c, i) => {
-          console.log(`  ${i + 1}. ${c.name}${c.teacher ? ` (${c.teacher})` : ""}`);
-          if (c.url) console.log(`     链接: ${c.url}`);
-        });
-      } else {
-        log("未找到课程，可能被页面结构挡住了", "warn");
-        log("请检查 login-result.png 截图", "info");
-      }
+      await fetchCourses(result.page, true); // activeOnly = true
       
       break;
     }
@@ -70,7 +56,7 @@ async function main() {
     default:
       console.log("  命令:");
       console.log("    login <手机号> <密码>   登录超星学习通");
-      console.log("    courses <手机号> <密码> 查看课程列表");
+      console.log("    courses <手机号> <密码> 查看进行中的课程");
       console.log("    help                    显示帮助\n");
       break;
   }
