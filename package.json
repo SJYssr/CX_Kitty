@@ -14,7 +14,9 @@
     "axios": "^1.7.0",
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.0.0",
+    "cli-progress": "^3.12.0",
     "jsdom": "^24.0.0",
+    "ora": "^9.4.0",
     "tough-cookie": "^6.0.1"
   }
 }

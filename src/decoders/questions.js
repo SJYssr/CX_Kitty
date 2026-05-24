@@ -1,0 +1,83 @@
+/**
+ * 答题题目 HTML → 结构化数据解析器
+ * @module decoders/questions
+ */
+
+import * as cheerio from 'cheerio';
+
+/** 题型码 → 类型字符串 */
+const TYPE_MAP = {
+  0: 'single',
+  1: 'multiple',
+  2: 'completion',
+  3: 'judgement',
+  4: 'shortanswer'
+};
+
+/**
+ * 解析答题页面 HTML，提取题目列表和表单数据
+ * @param {string} html — /mooc-ans/api/work 返回的 HTML
+ * @returns {{ formData: Object, questions: Array<{id: string, title: string, options: string[], type: string, answerField: string}> }}
+ */
+export function parseQuestions(html) {
+  const $ = cheerio.load(html);
+  const formData = {};
+  const questions = [];
+
+  // 提取表单隐藏字段
+  $('form input[type="hidden"]').each((_, el) => {
+    const name = $(el).attr('name');
+    const val = $(el).attr('value') || $(el).val();
+    if (name) formData[name] = val;
+  });
+
+  // 提取每个题目
+  $('div.singleQuesId').each((_, el) => {
+    const $q = $(el);
+    const dataProps = $q.data() || {};
+    const questionId = dataProps.questionid || $q.attr('data') || '';
+
+    // 获取题目标题
+    const titleEl = $q.find('.Zy_TItle .clearfix');
+    const title = (titleEl.text() || '').trim().replace(/\s+/g, ' ');
+
+    // 获取题型: data 属性中的数字
+    const typeCodeRaw = $q.find('.TiMu').attr('data') || $q.attr('data') || '';
+    const typeCode = parseInt(typeCodeRaw, 10);
+    const type = TYPE_MAP[typeCode] || 'single';
+
+    // 获取选项
+    const options = [];
+    $q.find('ul li').each((_, li) => {
+      const $li = $(li);
+
+      // 跳过说明行
+      if ($li.hasClass('ti-before') || $li.hasClass('ti-after')) return;
+
+      let optText = ($li.attr('aria-label') || $li.text() || '').trim();
+      if (!optText) return;
+
+      // 处理判断题选项映射
+      if (type === 'judgement') {
+        optText = $li.find('label').text()?.trim() || optText;
+      }
+
+      options.push(optText);
+    });
+
+    // 选项排序 (保持稳定)
+    // 确定答案字段名
+    let answerField = `answer${questionId}`;
+    if (type === 'multiple') answerField = `answer${questionId}`;
+
+    questions.push({
+      id: questionId,
+      title,
+      options,
+      type,
+      answerField
+    });
+  });
+
+  return { formData, questions };
+}
