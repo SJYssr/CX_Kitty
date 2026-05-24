@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { login, getCourseList, loadJar } from "./api.js";
+import { login, getCourseList, client } from "./api.js";
 import { getCoursePoints, getJobCards, watchVideo, watchDocument, setSession } from "./video.js";
 import config from "./config.js";
 
@@ -18,12 +18,10 @@ async function main() {
     return;
   }
 
-  // 登录 (自动管理cookies)
   const auth = await login(phone, pwd);
   if (!auth.success) return;
   setSession(auth.uid);
 
-  // 课程列表
   const courses = await getCourseList();
   const active = courses.filter(c => !c.isEnd);
   if (cmd === "courses") {
@@ -35,11 +33,16 @@ async function main() {
   const course = active[idx];
   console.log(`\n===== ${course.name} =====`);
 
-  // 章节
+  // 建立会话 (getCourseList的POST可能搞乱session, 再访问一次)
+  const head = { "User-Agent": config.headers["User-Agent"] };
+  await client.get("https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction", { headers: head }).catch(() => {});
+
   const points = await getCoursePoints(course.courseId, course.clazzId, course.cpi);
   console.log(`${points.length} 个章节`);
 
-  // 任务
+  // 再建立会话
+  await client.get("https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction", { headers: head }).catch(() => {});
+
   let totalJobs = [];
   for (const ch of points) {
     for (const item of ch.items) {
@@ -53,7 +56,6 @@ async function main() {
 
   const videos = totalJobs.filter(j => j.type === "video" || (!j.type && j.dtoken));
   const docs = totalJobs.filter(j => j.type === "document" || (!j.type && j.jobid?.startsWith("doc")));
-
   console.log(`\n视频: ${videos.length}, 文档: ${docs.length}`);
 
   for (let i = 0; i < videos.length; i++) {

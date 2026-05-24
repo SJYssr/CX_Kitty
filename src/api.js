@@ -16,7 +16,7 @@ function saveJar() {
   jar.toJSON().cookies.forEach(c => { /* just for safety */ });
 }
 
-function aesEncrypt(plaintext) {
+export function aesEncrypt(plaintext) {
   const key = Buffer.from(cfg.AESKey, "utf8");
   const iv = Buffer.from(cfg.AESKey, "utf8");
   const cipher = crypto.createCipheriv("aes-128-cbc", key, iv);
