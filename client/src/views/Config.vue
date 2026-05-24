@@ -91,7 +91,22 @@ async function save() {
   } finally { saving.value = false }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 先从数据库加载已有配置
+  if (props.account?.phone) {
+    try {
+      const { data } = await axios.get('/api/account/config', { params: { phone: props.account.phone } })
+      if (data.success && data.config) {
+        form.value.deepseekApiKey = data.config.deepseek_api_key || ''
+        form.value.deepseekModel = data.config.deepseek_model || 'deepseek-v4-flash'
+        form.value.enableAnswering = data.config.enable_answering !== false
+        form.value.autoSubmit = !!data.config.auto_submit
+        if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
+        return
+      }
+    } catch {}
+  }
+  // 从 localStorage 回填
   if (props.account) {
     form.value.deepseekApiKey = props.account.deepseekApiKey || ''
     form.value.deepseekModel = props.account.deepseekModel || 'deepseek-v4-flash'

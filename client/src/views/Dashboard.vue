@@ -9,11 +9,10 @@
 
     <main class="main">
       <section class="row">
-        <!-- 课程列表 -->
         <div class="col">
           <div class="panel">
             <div class="panel-header">📚 课程列表</div>
-            <el-table :data="courses" stripe size="small" max-height="360" style="width:100%">
+            <el-table :data="courses" stripe size="small" max-height="360" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
               <el-table-column prop="title" label="课程" min-width="160" show-overflow-tooltip />
               <el-table-column prop="teacher" label="教师" width="100" />
@@ -21,7 +20,6 @@
           </div>
         </div>
 
-        <!-- 刷课控制 -->
         <div class="col">
           <div class="panel">
             <div class="panel-header">⚙️ 刷课</div>
@@ -43,7 +41,6 @@
             </el-button>
           </div>
 
-          <!-- 当前任务 -->
           <div v-if="currentTask" class="panel" style="margin-top:12px">
             <div class="panel-header">
               📊 任务 #{{ currentTask.id }}
@@ -59,7 +56,6 @@
         </div>
       </section>
 
-      <!-- 任务历史 -->
       <section class="panel" style="margin-top:16px">
         <div class="panel-header">
           📋 任务记录
@@ -86,12 +82,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import axios from 'axios'
 
 const props = defineProps({ account: Object })
 const emit = defineEmits(['logout', 'config'])
 
 const courses = ref([])
+const selectedCourses = ref([])
 const speed = ref(1)
 const jobs = ref(3)
 const starting = ref(false)
@@ -100,6 +98,10 @@ const loadingTasks = ref(false)
 const currentTask = ref(null)
 const tasks = ref([])
 let timer = null
+
+function onSelectionChange(selection) {
+  selectedCourses.value = selection.map(c => c.courseId)
+}
 
 const taskTag = computed(() =>
   ({ completed:'success', failed:'danger', running:'warning' }[currentTask.value?.status] || 'info'))
@@ -134,6 +136,7 @@ async function start() {
     const { data } = await axios.post('/api/study/start', {
       phone: props.account.phone,
       password: props.account.password,
+      courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
       speed: speed.value,
       jobs: jobs.value,
       deepseekApiKey: props.account.deepseekApiKey || '',
@@ -142,11 +145,12 @@ async function start() {
       autoSubmit: !!props.account.autoSubmit
     })
     if (data.success) {
+      ElMessage.success('刷课任务已启动')
       currentTask.value = { id: data.taskId, status: 'running' }
       loadTasks()
       timer = setInterval(async () => {
         try {
-          const r = await axios.get(`/api/study/status/${data.taskId}`)
+          const r = await axios.get('/api/study/status/' + data.taskId)
           if (r.data.success && r.data.task) {
             currentTask.value = r.data.task
             if (['completed','failed'].includes(r.data.task.status)) {
@@ -155,8 +159,12 @@ async function start() {
           }
         } catch {}
       }, 3000)
+    } else {
+      ElMessage.error(data.message || '启动失败')
     }
-  } catch {} finally { starting.value = false }
+  } catch (err) {
+    ElMessage.error('启动失败: ' + (err.response?.data?.message || err.message))
+  } finally { starting.value = false }
 }
 
 onMounted(() => { loadCourses(); loadTasks() })
