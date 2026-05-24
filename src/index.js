@@ -30,7 +30,9 @@ function parseArgs() {
     tiku: {
       provider: 'deepseek',
       submit: false,
-      coverRate: 0.8
+      coverRate: 0.8,
+      disabled: false,
+      model: 'deepseek-v4-flash'
     }
   };
 
@@ -64,6 +66,12 @@ function parseArgs() {
       case '--tk-cover':
         opts.tiku.coverRate = parseFloat(args[++i]) || 0.8;
         break;
+      case '--tk-model':
+        opts.tiku.model = args[++i] || 'deepseek-v4-flash';
+        break;
+      case '--tk-disable':
+        opts.tiku.disabled = true;
+        break;
       case '-h':
       case '--help':
         printHelp();
@@ -95,6 +103,8 @@ function printHelp() {
   题库选项:
     --tk-submit              启用自动提交
     --tk-cover <0.0-1.0>     最低覆盖率 (默认 0.8)
+    --tk-model <模型名>       DeepSeek 模型名 (默认 deepseek-v4-flash)
+    --tk-disable             禁用 AI 答题
 
   DeepSeek AI 答题:
     默认使用 DeepSeek 进行 AI 答题，需配置环境变量:
@@ -103,6 +113,7 @@ function printHelp() {
   示例:
     DEEPSEEK_API_KEY=sk-xxx node src/index.js -u 13800138000 -p mypassword
     DEEPSEEK_API_KEY=sk-xxx node src/index.js -u 13800138000 -p mypassword -l 12345678 -s 2 -j 5 --tk-submit
+    DEEPSEEK_API_KEY=sk-xxx node src/index.js -u 13800138000 -p mypassword --tk-model deepseek-v4-pro --tk-disable
 `);
 }
 
@@ -114,13 +125,18 @@ function printHelp() {
  * @returns {TikuDeepSeek|null}
  */
 function initTiku(cliOpts) {
+  if (cliOpts.disabled) {
+    logger.info('AI 答题已禁用');
+    return null;
+  }
+
   const apiKey = process.env.DEEPSEEK_API_KEY || '';
   if (!apiKey) {
     logger.warn('未设置 DEEPSEEK_API_KEY 环境变量，答题功能将跳过');
     return null;
   }
 
-  const deepseek = new TikuDeepSeek(apiKey);
+  const deepseek = new TikuDeepSeek(apiKey, cliOpts.model || 'deepseek-v4-flash');
   deepseek.initTiku({
     SUBMIT: cliOpts.submit,
     COVER_RATE: cliOpts.coverRate

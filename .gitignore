@@ -5,3 +5,11 @@ node_modules/
 .vscode/
 .idea/
 config.js
+
+# Build output
+client/dist/
+
+# Environment
+.env
+server/.env
+
