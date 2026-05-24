@@ -3,7 +3,7 @@ import { log, sleep } from "./utils.js";
 /**
  * 自动刷视频 - 推进video进度，让页面自己发心跳上报
  */
-export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 3) {
+export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 1) {
   log(`进入视频: ${knowledgeId}`, "step");
 
   let videoDuration = 0;
@@ -66,7 +66,7 @@ export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 3) {
 
       // 每隔1秒推进3秒
       window._simInterval = setInterval(() => {
-        ct = Math.min(ct + 3, dur);
+        ct = Math.min(ct + 1, dur);
         try { v.currentTime = ct; } catch(e) {}
         v.dispatchEvent(new Event("timeupdate", { bubbles: true }));
         if (ct >= dur) clearInterval(window._simInterval);
