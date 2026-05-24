@@ -1,117 +1,106 @@
-import axios from "axios";
 import { load } from "cheerio";
 import cfg from "./config.js";
 import { getEnc } from "./crypto.js";
+import { client, jar } from "./api.js";
 
 let uid = "";
-let cookieStr = "";
 
-export function setSession(cookies, _uid) {
-  cookieStr = cookies;
+export function setSession(_uid) {
   uid = _uid;
-}
-
-function makeSession(isVideo = false) {
-  const s = axios.create({ timeout: 15000 });
-  s.defaults.headers = { ...(isVideo ? cfg.videoHeaders : cfg.headers), Cookie: cookieStr };
-  return s;
 }
 
 export function getRandomWait() {
   return Math.floor(Math.random() * 61) + 30;
 }
 
-function getFid() {
-  const m = cookieStr.match(/fid=(\d+)/);
-  return m ? m[1] : "4311";
+async function getFid() {
+  const cookies = await jar.getCookies("https://chaoxing.com");
+  return cookies.find(c => c.key === "fid")?.value || "4311";
 }
 
 // ===== 章节列表 =====
 export async function getCoursePoints(courseId, clazzId, cpi) {
-  const s = makeSession();
   const url = `https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/studentcourse?courseid=${courseId}&clazzid=${clazzId}&cpi=${cpi}&ut=s`;
-  const resp = await s.get(url);
-  const $ = load(resp.data);
-  const points = [];
-
-  $("div.chapter_unit").each((_, unit) => {
-    const title = $(unit).find(".chapter_td").text().trim().replace(/\s+/g, " ");
-    const items = [];
-    $(unit).find("li").each((_, li) => {
-      const $div = $(li).find("div[id^=cur]");
-      if (!$div.length) return;
-      const id = $div.attr("id")?.replace("cur", "");
-      const $a = $div.find("a.clicktitle");
-      const name = $a.text().trim().replace(/\s+/g, " ");
-      const onclick = $a.attr("onclick") || "";
-      const mid = onclick.match(/toOld\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]/);
-      if (id && name) items.push({ id, name, knowledgeId: mid?.[2] || "", courseId: mid?.[1] || "" });
+  try {
+    const resp = await client.get(url, { headers: cfg.headers });
+    const $ = load(resp.data);
+    const points = [];
+    $("div.chapter_unit").each((_, unit) => {
+      const title = $(unit).find(".catalog_name.newCatalog_name").first().text().trim().replace(/\s+/g, " ");
+      const items = [];
+      $(unit).find("div.chapter_item[id^=cur]").each((_, el) => {
+        const $el = $(el);
+        const id = $el.attr("id")?.replace("cur", "");
+        const name = $el.attr("title") || $el.find(".catalog_title").text().trim().replace(/\s+/g, " ");
+        const onclick = $el.attr("onclick") || "";
+        const mid = onclick.match(/toOld\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]/);
+        if (id && name) items.push({ id, name, knowledgeId: mid?.[2] || "", courseId: mid?.[1] || "" });
+      });
+      if (title) points.push({ title, items });
     });
-    if (title) points.push({ title, items });
-  });
-  return points;
+    return points;
+  } catch (err) {
+    console.log(`  ❌ 章节: ${err.message}`);
+    return [];
+  }
 }
 
 // ===== 任务卡片 =====
 export async function getJobCards(clazzId, courseId, cpi, knowledgeId) {
-  const s = makeSession();
   for (const num of ["0", "1", "2"]) {
     const url = `https://mooc1.chaoxing.com/mooc-ans/knowledge/cards?clazzid=${clazzId}&courseid=${courseId}&knowledgeid=${knowledgeId}&num=${num}&ut=s&cpi=${cpi}&v=20160407-3&mooc2=1`;
     try {
-      const resp = await s.get(url);
+      const resp = await client.get(url, { headers: cfg.videoHeaders });
       const html = resp.data;
-      if (!html.includes("mArg=")) continue;
-      const m = html.match(/mArg=\{(.*?)\};/);
+      if (typeof html !== "string" || !html.includes("mArg")) continue;
+
+      const m = html.match(/mArg\s*=\s*(\{[\s\S]*?\});/);
       if (!m) continue;
-      const data = JSON.parse("{" + m[1] + "}");
-      if (!data?.defaults) continue;
-      const def = data.defaults;
+
+      const data = JSON.parse(m[1]);
+      const def = data.defaults || {};
+      const atts = data.attachments || [];
       const jobs = [];
-      for (const card of Object.values(data.cards || {})) {
-        const job = {
-          cardid: def.cardid || "",
-          ktoken: def.ktoken || "", mtEnc: def.mtEnc || "", defenc: def.defenc || "",
+
+      for (const att of atts) {
+        if (!att.jobid && !att.property?.jobid) continue;
+        const prop = att.property || {};
+        jobs.push({
+          jobid: att.jobid || prop.jobid || "",
+          otherinfo: att.otherInfo || prop.otherInfo || att.otherinfo || "",
+          objectid: att.objectId || prop.objectid || att.objectid || "",
+          cardTitle: prop.title || att.title || "视频",
+          type: att.type || prop.type || "",
+          dtoken: prop.dtoken || "",
+          duration: prop.duration ? parseInt(prop.duration) : (att.attDuration || 0),
+          jtoken: att.jtoken || prop.jtoken || "",
+          enc: att.enc || prop.enc || "",
+          ktoken: def.ktoken || "",
           cpi: def.cpi || cpi,
-          jobid: card.jobid || card.jobId || "",
-          otherinfo: card.otherinfo || card.otherInfo || "",
-          objectid: card.objectid || card.objectId || "",
-          cardTitle: card.cardTitle || card.title || card.cardtitle || "",
-          type: card.type || "", enc: card.enc || "", jtoken: card.jtoken || "",
           knowledgeid: knowledgeId
-        };
-        if (card.attachments) {
-          const att = Array.isArray(card.attachments) ? card.attachments[0] : card.attachments;
-          if (att?.property) {
-            job.dtoken = att.property.dtoken || "";
-            job.duration = parseInt(att.property.duration) || 0;
-            job.objectid = att.property.objectid || att.objectid || job.objectid;
-          }
-        }
-        jobs.push(job);
+        });
       }
-      return jobs;
+      if (jobs.length) return jobs;
     } catch (e) { continue; }
   }
   return [];
 }
 
-// ===== 视频状态 =====
+// ===== 获取视频状态 =====
 export async function getVideoStatus(objectId) {
-  const s = makeSession(true);
-  const fid = getFid();
+  const fid = await getFid();
   const url = `https://mooc1.chaoxing.com/ananas/status/${objectId}?k=${fid}&flag=normal&_dc=${Date.now()}`;
   try {
-    const resp = await s.get(url);
+    const resp = await client.get(url, { headers: cfg.videoHeaders });
     const d = resp.data;
-    return { duration: d.duration || 0, dtoken: d.dtoken || "", crc: d.crc || "", key: d.key || "", status: d.status };
+    return { duration: d.duration || 0, dtoken: d.dtoken || "", crc: d.crc || "", status: d.status || "success" };
   } catch (e) {
-    return { duration: 0, dtoken: "", crc: "", key: "", status: "error" };
+    return { duration: 0, dtoken: "", crc: "", status: "error" };
   }
 }
 
-// ===== 心跳 → 返回 {isPassed} =====
+// ===== 心跳 =====
 export async function sendHeartbeat(clazzId, userid, jobid, objectId, playingTime, duration, otherinfo, courseId, cpi, dtoken, type = "Video") {
-  const s = makeSession(true);
   const enc = getEnc(clazzId, userid, jobid, objectId, playingTime, duration);
   const mid = otherinfo?.includes("courseId")
     ? `otherInfo=${encodeURIComponent(otherinfo)}&`
@@ -123,7 +112,7 @@ export async function sendHeartbeat(clazzId, userid, jobid, objectId, playingTim
       `objectId=${objectId}&${mid}jobid=${jobid}&userid=${userid}&isdrag=3&view=pc&enc=${enc}&` +
       `rt=${rt}&dtype=${type}&_t=${Date.now()}`;
     try {
-      const resp = await s.get(url);
+      const resp = await client.get(url, { headers: cfg.videoHeaders });
       if (resp.status === 200) return resp.data;
     } catch (e) {
       if (e.response?.status === 403) continue;
@@ -141,7 +130,7 @@ function showProgress(name, current, waitSec, total, speed) {
       const pos = Math.min(current + elapsed * speed, total);
       const pct = Math.round(pos / total * 100);
       const bar = "#".repeat(Math.round(pct / 100 * 40)).padEnd(40, " ");
-      process.stdout.write(`\r📺 ${name} |${bar}| ${pct}%  ${fmt(pos)}/${fmt(total)}`);
+      process.stdout.write(`\r${name} |${bar}| ${pct}%  ${fmt(pos)}/${fmt(total)}`);
       if (elapsed >= waitSec) { clearInterval(id); resolve(); }
     }, 300);
   });
@@ -157,32 +146,34 @@ function fmt(s) {
 export async function watchVideo(job, course, _uid, speed = 1.0) {
   const { clazzId, courseId, cpi } = course;
   const { jobid, objectid, otherinfo, cardTitle } = job;
-
-  const status = await getVideoStatus(objectid);
-  if (status.status !== "success" || !status.duration) {
-    console.log(`  ❌ 无法获取视频信息`);
-    return false;
-  }
-
-  const dur = status.duration;
-  const tok = status.dtoken;
   const userid = _uid || uid;
 
-  console.log(`  📹 总时长: ${dur}秒`);
+  let dur = job.duration;
+  let tok = job.dtoken;
+
+  if (!tok || !dur) {
+    const status = await getVideoStatus(objectid);
+    if (status.status !== "success") { console.log(`  ❌ 视频信息失败`); return false; }
+    dur = status.duration;
+    tok = status.dtoken;
+  }
+
+  if (!dur || !tok) { console.log(`  ❌ 无效视频信息`); return false; }
+
+  console.log(`  📹 ${dur}秒`);
 
   let played = 0;
   let isFinished = false;
 
   while (!isFinished) {
     const resp = await sendHeartbeat(clazzId, userid, jobid, objectid, played, dur, otherinfo, courseId, cpi, tok);
-    if (resp === false) { console.log(`\n  ⚠️ 心跳403`); break; }
-    if (resp.isPassed) { console.log(`\n  ✅ isPassed=true → 完成!`); break; }
+    if (resp === false) { console.log(`\n  ⚠️ 心跳失败`); break; }
+    if (resp.isPassed) { console.log(`\n  ✅ 完成!`); break; }
 
     let wait = getRandomWait();
     if (played + wait >= dur) { wait = dur - played; isFinished = true; }
 
-    const name = cardTitle || "视频";
-    await showProgress(name, played, wait, dur, speed);
+    await showProgress(cardTitle || "视频", played, wait, dur, speed);
     played += wait;
   }
 
@@ -193,9 +184,8 @@ export async function watchVideo(job, course, _uid, speed = 1.0) {
 
 // ===== 刷文档 =====
 export async function watchDocument(job, course) {
-  const s = makeSession();
   const kid = job.otherinfo?.match(/nodeId_(.*?)-/)?.[1] || "";
   const url = `https://mooc1.chaoxing.com/ananas/job/document?jobid=${job.jobid}&knowledgeid=${kid}&courseid=${course.courseId}&clazzid=${course.clazzId}&jtoken=${job.jtoken}&_dc=${Date.now()}`;
-  try { await s.get(url); console.log(`  ✅ 文档完成`); return true; }
+  try { await client.get(url, { headers: cfg.headers }); console.log(`  ✅ 文档完成`); return true; }
   catch (e) { console.log(`  ❌ 文档: ${e.message}`); return false; }
 }

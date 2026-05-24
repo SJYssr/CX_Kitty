@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { login, getCourseList } from "./api.js";
+import { login, getCourseList, loadJar } from "./api.js";
 import { getCoursePoints, getJobCards, watchVideo, watchDocument, setSession } from "./video.js";
-import { getEnc } from "./crypto.js";
-import fs from "fs";
 import config from "./config.js";
 
 async function main() {
@@ -20,13 +18,12 @@ async function main() {
     return;
   }
 
-  // 登录
+  // 登录 (自动管理cookies)
   const auth = await login(phone, pwd);
   if (!auth.success) return;
-  const raw = JSON.parse(fs.readFileSync(config.cookiePath, "utf8"));
-  setSession(raw.jar || "", auth.uid);
+  setSession(auth.uid);
 
-  // 课程
+  // 课程列表
   const courses = await getCourseList();
   const active = courses.filter(c => !c.isEnd);
   if (cmd === "courses") {
@@ -38,46 +35,38 @@ async function main() {
   const course = active[idx];
   console.log(`\n===== ${course.name} =====`);
 
-  // 章节 → 知识点
+  // 章节
   const points = await getCoursePoints(course.courseId, course.clazzId, course.cpi);
   console.log(`${points.length} 个章节`);
 
-  // 扫描所有任务
+  // 任务
   let totalJobs = [];
   for (const ch of points) {
     for (const item of ch.items) {
       const jobs = await getJobCards(course.clazzId, course.courseId, course.cpi, item.knowledgeId);
-      for (const j of jobs) {
-        j.chapterTitle = ch.title;
-        j.knowledgeName = item.name;
-      }
+      for (const j of jobs) j.knowledgeName = item.name;
       totalJobs = totalJobs.concat(jobs);
     }
   }
 
-  if (!totalJobs.length) { console.log("没有需要处理的任务"); return; }
+  if (!totalJobs.length) { console.log("无任务"); return; }
 
-  // 分类
   const videos = totalJobs.filter(j => j.type === "video" || (!j.type && j.dtoken));
   const docs = totalJobs.filter(j => j.type === "document" || (!j.type && j.jobid?.startsWith("doc")));
-  const works = totalJobs.filter(j => j.type === "work" || j.jobid?.startsWith("work"));
 
-  console.log(`\n视频: ${videos.length}, 文档: ${docs.length}, 作业: ${works.length}`);
+  console.log(`\n视频: ${videos.length}, 文档: ${docs.length}`);
 
-  // 刷视频
   for (let i = 0; i < videos.length; i++) {
     const v = videos[i];
     console.log(`\n[${i+1}/${videos.length}] ${v.knowledgeName || v.cardTitle}`);
-    const ok = await watchVideo(v, course, auth.uid);
+    await watchVideo(v, course, auth.uid);
   }
-
-  // 刷文档
   for (const d of docs) {
     console.log(`\n📄 ${d.cardTitle}`);
     await watchDocument(d, course);
   }
 
-  console.log(`\n🎉 完成! ${videos.length}个视频, ${docs.length}个文档`);
+  console.log(`\n🎉 完成! ${videos.length}个视频`);
 }
 
 main().catch(err => console.error(err.message || err));
