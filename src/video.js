@@ -1,48 +1,34 @@
 import { log, sleep } from "./utils.js";
 
-async function findVideoFrame(page) {
-  for (const f of page.frames()) {
-    if (f.url().includes("video/index")) return f;
-  }
-  return null;
-}
-
 /**
- * 真实观看 - 从ananas/status API获取时长 + 劫持currentTime
+ * 自动刷视频 - 推进video进度，让页面自己发心跳上报
  */
 export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 3) {
   log(`进入视频: ${knowledgeId}`, "step");
 
-  let heartbeatCount = 0;
   let videoDuration = 0;
-  let currentPlayed = 0;
+  let playingTime = 0;
+  let heartbeatCount = 0;
 
-  // 拦截 ananas/status 获取视频时长
-  page.on("response", async (resp) => {
-    const url = resp.url();
-    if (url.includes("ananas/status/") && !videoDuration) {
-      try {
-        const body = await resp.text();
-        const data = JSON.parse(body);
-        if (data?.duration) videoDuration = data.duration;
-      } catch(e) {}
+  // 从 ananas/status 获取时长
+  const respHandler = async (resp) => {
+    if (resp.url().includes("ananas/status/") && !videoDuration) {
+      try { const d = JSON.parse(await resp.text()); if (d?.duration) videoDuration = d.duration; } catch(e) {}
     }
-  });
+  };
+  page.on("response", respHandler);
 
-  // 监听心跳
-  page.on("request", (req) => {
-    const url = req.url();
-    if (url.includes("multimedia/log/a/")) {
+  // 监控心跳进度
+  const reqHandler = (req) => {
+    if (req.url().includes("multimedia/log/a/")) {
       heartbeatCount++;
       try {
-        const u = new URL(url);
-        const pt = parseInt(u.searchParams.get("playingTime") || "0");
-        const dur = parseInt(u.searchParams.get("duration") || "0");
-        if (pt > currentPlayed) currentPlayed = pt;
-        if (dur > videoDuration) videoDuration = dur;
+        const pt = parseInt(new URL(req.url()).searchParams.get("playingTime") || "0");
+        if (pt > playingTime) playingTime = pt;
       } catch(e) {}
     }
-  });
+  };
+  page.on("request", reqHandler);
 
   // 点击视频
   await cf.evaluate((kid) => {
@@ -51,87 +37,51 @@ export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 3) {
     if (t) t.click();
   }, knowledgeId);
 
+  await sleep(8000);
+
   // 等时长（最多20秒）
-  for (let i = 0; i < 10; i++) {
-    await sleep(2000);
-    if (videoDuration > 0) {
-      log(`视频时长: ${videoDuration}s`, "info");
-      break;
+  for (let i = 0; i < 10 && !videoDuration; i++) await sleep(2000);
+  if (!videoDuration) {
+    for (const f of page.frames()) {
+      if (f.url().includes("video/index")) {
+        videoDuration = await f.evaluate(() => document.querySelector("video")?.duration || 0);
+        break;
+      }
     }
   }
+  if (!videoDuration) { log("无法获取视频时长", "error"); return false; }
 
-  if (!videoDuration) {
-    log("无法获取视频时长", "error");
-    return false;
-  }
+  log(`视频时长: ${videoDuration}s`, "info");
 
-  // 劫持currentTime
-  const vf = await findVideoFrame(page);
-  if (vf) {
-    await vf.evaluate((dur) => {
-      const v = document.getElementById("video");
-      if (!v || !v.tagName || v.tagName !== "VIDEO") {
-        // Try videojs API
-        const player = window.videojs?.("video") || window.videojs?.(".video-js");
-        if (player && player.el_) {
-          hijackPlayer(player, dur);
-          return;
-        }
-        return;
-      }
+  // 找video元素，开始推进进度
+  for (const f of page.frames()) {
+    if (!f.url().includes("video/index")) continue;
 
-      let fakeTime = Math.max(0, v.currentTime || 0);
+    await f.evaluate((dur) => {
+      const v = document.getElementsByTagName("video")[0];
+      if (!v) return;
 
-      Object.defineProperty(v, "currentTime", {
-        get: () => fakeTime,
-        set: (val) => { if (val > fakeTime) fakeTime = Math.min(val, dur); },
-        configurable: true
-      });
+      // 直接从当前进度开始
+      let ct = v.currentTime || 0;
 
-      window._playInterval = setInterval(() => {
-        fakeTime = Math.min(fakeTime + 3, dur);
-        v.dispatchEvent(new Event("timeupdate"));
-        if (fakeTime >= dur) clearInterval(window._playInterval);
+      // 每隔1秒推进3秒
+      window._simInterval = setInterval(() => {
+        ct = Math.min(ct + 3, dur);
+        try { v.currentTime = ct; } catch(e) {}
+        v.dispatchEvent(new Event("timeupdate", { bubbles: true }));
+        if (ct >= dur) clearInterval(window._simInterval);
       }, 1000);
 
-      // 直接设置 muted
       v.muted = true;
-      // 通过 videojs API 播放
-      try { player?.play(); } catch(e) {}
-      try { v.play(); } catch(e) {}
-      // 点播放按钮
-      document.querySelector(".vjs-big-play-button")?.click();
-      document.querySelector(".vjs-play-control")?.click();
-
-      function hijackPlayer(player, dur) {
-        let fakeTime = player.currentTime() || 0;
-        const origCT = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "currentTime");
-        
-        const media = player.el_.querySelector("video");
-        if (media) {
-          Object.defineProperty(media, "currentTime", {
-            get: () => fakeTime,
-            set: (v) => { if (v > fakeTime) fakeTime = Math.min(v, dur); },
-            configurable: true
-          });
-          
-          window._playInterval = setInterval(() => {
-            fakeTime = Math.min(fakeTime + 3, dur);
-            media.dispatchEvent(new Event("timeupdate"));
-            if (fakeTime >= dur) clearInterval(window._playInterval);
-          }, 1000);
-          
-          media.muted = true;
-          player.play();
-        }
-      }
+      v.play().catch(() => {});
     }, videoDuration);
 
-    log(`播放中 (${speed}x, ~${Math.ceil(videoDuration/speed)}秒)...`, "step");
+    log(`播放中 (${speed}x)...`, "step");
+    break;
   }
 
-  // 等心跳
-  const maxWait = Math.min(Math.ceil(videoDuration / speed) * 1000 + 15000, 180000);
+  // 等进度到100%
+  const maxWait = Math.min(Math.ceil(videoDuration / speed) * 1000 + 30000, 180000);
   let waited = 0, lastCount = 0;
 
   while (waited < maxWait) {
@@ -139,13 +89,26 @@ export async function autoWatchVideo(page, cf, course, knowledgeId, speed = 3) {
     waited += 5000;
     if (heartbeatCount > lastCount) {
       lastCount = heartbeatCount;
-      const pct = Math.round(currentPlayed / videoDuration * 100);
-      log(`⏳ ${currentPlayed}/${videoDuration}s (${pct}%) ${heartbeatCount}次心跳`, "info");
+      log(`⏳ ${playingTime}/${videoDuration}s (${Math.round(playingTime/videoDuration*100)}%)`, "info");
     }
-    if (currentPlayed >= videoDuration) break;
+    if (playingTime >= videoDuration - 1) { log("✅", "success"); break; }
   }
 
-  log(`完成: ${currentPlayed}/${videoDuration}s (${Math.round(currentPlayed/videoDuration*100)}%) ${heartbeatCount}次心跳 ✅`, "success");
+  // 收尾
+  for (const f of page.frames()) {
+    if (!f.url().includes("video/index")) continue;
+    await f.evaluate(() => {
+      if (window._simInterval) clearInterval(window._simInterval);
+      const v = document.querySelector("video");
+      if (v) { try { v.currentTime = v.duration || 0; } catch(e) {} v.dispatchEvent(new Event("timeupdate")); }
+    });
+    await sleep(5000);
+    break;
+  }
+
+  log(`完成: ${Math.round(playingTime)}/${videoDuration}s ${heartbeatCount}次心跳 ✅`, "success");
+  page.removeListener("response", respHandler);
+  page.removeListener("request", reqHandler);
   return true;
 }
 
