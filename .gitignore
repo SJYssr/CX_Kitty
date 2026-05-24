@@ -1,0 +1,7 @@
+node_modules/
+.cache/
+*.png
+.DS_Store
+.vscode/
+.idea/
+config.js

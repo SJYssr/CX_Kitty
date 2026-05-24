@@ -1,0 +1,18 @@
+{
+  "name": "cx-kitty",
+  "version": "1.0.0",
+  "description": "超星学习通自动化工具 - CX_Kitty",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "login": "node src/index.js login",
+    "courses": "node src/index.js courses",
+    "watch": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "chalk": "^5.4.1",
+    "axios": "^1.7.0"
+  }
+}
