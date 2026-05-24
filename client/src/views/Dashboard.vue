@@ -167,7 +167,26 @@ async function start() {
   } finally { starting.value = false }
 }
 
-onMounted(() => { loadCourses(); loadTasks() })
+onMounted(() => {
+  loadCourses()
+  loadTasks()
+
+  // 检查上次是否有完成/失败的任务
+  const lastNotice = localStorage.getItem('cx_last_task_notice')
+  axios.get('/api/study/tasks').then(r => {
+    if (!r.data.success || !r.data.tasks?.length) return
+    const latest = r.data.tasks[0]
+    if (!latest || !['completed','failed'].includes(latest.status)) return
+    if (lastNotice === String(latest.id)) return
+    localStorage.setItem('cx_last_task_notice', String(latest.id))
+
+    if (latest.status === 'completed') {
+      ElMessage.success('🎉 上次的刷课任务已完成！')
+    } else {
+      ElMessage.warning('⚠️ 上次的刷课任务执行失败')
+    }
+  }).catch(() => {})
+})
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
