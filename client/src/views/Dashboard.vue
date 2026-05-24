@@ -15,31 +15,21 @@
               <span>📚 课程列表</span>
               <el-button size="small" @click="loadCourses" :loading="loadingCourses">🔄 刷新</el-button>
             </div>
-            <el-table :data="courses" stripe size="small" max-height="360" style="width:100%" @selection-change="onSelectionChange">
+            <el-table :data="courses" stripe size="small" max-height="400" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
-              <el-table-column prop="title" label="课程" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="title" label="课程" min-width="180" show-overflow-tooltip />
               <el-table-column prop="teacher" label="教师" width="100" />
             </el-table>
           </div>
         </div>
 
         <div class="col">
-          <div class="panel">
-            <div class="panel-header">⚙️ 刷课</div>
-            <div class="config"><label>倍速</label>
-              <el-radio-group v-model="speed" size="small">
-                <el-radio-button :value="1">1x</el-radio-button>
-                <el-radio-button :value="1.5">1.5x</el-radio-button>
-                <el-radio-button :value="2">2x</el-radio-button>
-              </el-radio-group>
+          <div class="panel" style="text-align:center;padding:32px 20px">
+            <div style="font-size:13px;color:#909399;margin-bottom:16px">
+              倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 3 }}
+              <el-button link size="small" @click="$emit('config')" style="margin-left:4px">修改</el-button>
             </div>
-            <div class="config"><label>并发</label>
-              <el-select v-model="jobs" size="small" style="width:100px">
-                <el-option :value="1" label="1" /><el-option :value="2" label="2" />
-                <el-option :value="3" label="3" /><el-option :value="5" label="5" />
-              </el-select>
-            </div>
-            <el-button type="primary" size="large" :loading="starting" style="width:100%;margin-top:8px" @click="start">
+            <el-button type="primary" size="large" :loading="starting" style="width:100%" @click="start">
               {{ starting ? '启动中…' : '🚀 开始刷课' }}
             </el-button>
           </div>
@@ -49,11 +39,9 @@
               📊 任务 #{{ currentTask.id }}
               <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
             </div>
-            <el-progress :percentage="taskPct" :status="taskPctStatus" :stroke-width="10" />
+            <el-progress :percentage="taskPct" :status="taskPctStatus" :stroke-width="12" />
             <p class="time">{{ currentTask.started_at?.slice(0,19) }} → {{ currentTask.finished_at?.slice(0,19) || '进行中' }}</p>
           </div>
-
-
         </div>
       </section>
 
@@ -91,8 +79,6 @@ const emit = defineEmits(['logout', 'config'])
 
 const courses = ref([])
 const selectedCourses = ref([])
-const speed = ref(props.account?.defaultSpeed || 1)
-const jobs = ref(props.account?.defaultJobs || 3)
 const starting = ref(false)
 const loadingCourses = ref(false)
 const loadingTasks = ref(false)
@@ -138,8 +124,8 @@ async function start() {
       phone: props.account.phone,
       password: props.account.password,
       courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
-      speed: speed.value,
-      jobs: jobs.value,
+      speed: props.account.defaultSpeed || 1,
+      jobs: props.account.defaultJobs || 3,
       deepseekApiKey: props.account.deepseekApiKey || '',
       deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
       enableAnswering: props.account.enableAnswering !== false,
@@ -171,8 +157,6 @@ async function start() {
 onMounted(() => {
   loadCourses()
   loadTasks()
-
-  // 检查上次是否有完成/失败的任务
   const lastNotice = localStorage.getItem('cx_last_task_notice')
   axios.get('/api/study/tasks').then(r => {
     if (!r.data.success || !r.data.tasks?.length) return
@@ -180,14 +164,11 @@ onMounted(() => {
     if (!latest || !['completed','failed'].includes(latest.status)) return
     if (lastNotice === String(latest.id)) return
     localStorage.setItem('cx_last_task_notice', String(latest.id))
-
-    if (latest.status === 'completed') {
-      ElMessage.success('🎉 上次的刷课任务已完成！')
-    } else {
-      ElMessage.warning('⚠️ 上次的刷课任务执行失败')
-    }
+    if (latest.status === 'completed') ElMessage.success('🎉 上次的刷课任务已完成！')
+    else ElMessage.warning('⚠️ 上次的刷课任务执行失败')
   }).catch(() => {})
 })
+
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
@@ -211,7 +192,5 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
   display: flex; align-items: center; justify-content: space-between;
   font-weight: 600; margin-bottom: 12px;
 }
-.config { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.config label { width: 48px; color: #606266; font-size: 13px; }
 .time { color: #909399; font-size: 12px; margin-top: 8px; text-align: center; }
 </style>
