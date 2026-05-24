@@ -11,7 +11,10 @@
       <section class="row">
         <div class="col">
           <div class="panel">
-            <div class="panel-header">📚 课程列表</div>
+            <div class="panel-header">
+              <span>📚 课程列表</span>
+              <el-button size="small" @click="loadCourses" :loading="loadingCourses">🔄 刷新</el-button>
+            </div>
             <el-table :data="courses" stripe size="small" max-height="360" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
               <el-table-column prop="title" label="课程" min-width="160" show-overflow-tooltip />
@@ -50,9 +53,7 @@
             <p class="time">{{ currentTask.started_at?.slice(0,19) }} → {{ currentTask.finished_at?.slice(0,19) || '进行中' }}</p>
           </div>
 
-          <el-button size="small" style="margin-top:12px;width:100%" @click="loadCourses" :loading="loadingCourses">
-            🔄 刷新课程
-          </el-button>
+
         </div>
       </section>
 
@@ -90,8 +91,8 @@ const emit = defineEmits(['logout', 'config'])
 
 const courses = ref([])
 const selectedCourses = ref([])
-const speed = ref(1)
-const jobs = ref(3)
+const speed = ref(props.account?.defaultSpeed || 1)
+const jobs = ref(props.account?.defaultJobs || 3)
 const starting = ref(false)
 const loadingCourses = ref(false)
 const loadingTasks = ref(false)

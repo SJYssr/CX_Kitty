@@ -32,7 +32,29 @@
           <el-switch v-model="form.autoSubmit" active-text="自动提交" inactive-text="仅保存" />
         </el-form-item>
 
-        <el-button type="primary" size="large" style="width:100%;margin-top:8px" :loading="saving" @click="save">
+        <el-divider />
+
+        <div class="config-row">
+          <div class="config-item">
+            <label>默认倍速</label>
+            <el-select v-model="form.defaultSpeed" size="small">
+              <el-option :value="1" label="1x" />
+              <el-option :value="1.5" label="1.5x" />
+              <el-option :value="2" label="2x" />
+            </el-select>
+          </div>
+          <div class="config-item">
+            <label>默认并发</label>
+            <el-select v-model="form.defaultJobs" size="small">
+              <el-option :value="1" label="1" />
+              <el-option :value="2" label="2" />
+              <el-option :value="3" label="3" />
+              <el-option :value="5" label="5" />
+            </el-select>
+          </div>
+        </div>
+
+        <el-button type="primary" size="large" style="width:100%;margin-top:12px" :loading="saving" @click="save">
           {{ saving ? '保存中...' : '💾 保存配置 & 进入刷课面板' }}
         </el-button>
       </el-form>
@@ -58,7 +80,9 @@ const form = ref({
   deepseekApiKey: '',
   deepseekModel: 'deepseek-v4-flash',
   enableAnswering: true,
-  autoSubmit: false
+  autoSubmit: false,
+  defaultSpeed: 1,
+  defaultJobs: 3
 })
 
 let timer = null
@@ -101,6 +125,8 @@ onMounted(async () => {
         form.value.deepseekModel = data.config.deepseek_model || 'deepseek-v4-flash'
         form.value.enableAnswering = data.config.enable_answering !== false
         form.value.autoSubmit = !!data.config.auto_submit
+        form.value.defaultSpeed = data.config.default_speed || 1
+        form.value.defaultJobs = data.config.default_jobs || 3
         if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
         return
       }
@@ -112,6 +138,8 @@ onMounted(async () => {
     form.value.deepseekModel = props.account.deepseekModel || 'deepseek-v4-flash'
     form.value.enableAnswering = props.account.enableAnswering !== false
     form.value.autoSubmit = !!props.account.autoSubmit
+    form.value.defaultSpeed = props.account.defaultSpeed || 1
+    form.value.defaultJobs = props.account.defaultJobs || 3
     if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
   }
 })
@@ -140,4 +168,7 @@ h1 { font-size: 22px; color: #303133; text-align: center; margin-bottom: 4px; }
 .balance-box.checking { background: #f4f4f5; color: #909399; justify-content: center; }
 .balance-val { font-weight: 600; color: #67c23a; }
 .balance-val.low { color: #e6a23c; }
+.config-row { display: flex; gap: 12px; margin-bottom: 12px; }
+.config-item { flex: 1; }
+.config-item label { display: block; color: #606266; font-size: 13px; margin-bottom: 6px; }
 </style>
