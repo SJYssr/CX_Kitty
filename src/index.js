@@ -3,7 +3,7 @@
 import { login } from "./login.js";
 import { navigateToCourse, fetchCourses } from "./courses.js";
 import { closeBrowser } from "./browser.js";
-import { autoWatchVideo, simulateWatch } from "./video.js";
+import { autoWatchVideo } from "./video.js";
 import { log, sleep } from "./utils.js";
 import config from "../config.js";
 
@@ -74,6 +74,12 @@ async function main() {
       }
       if (!cf) { log("未找到章节iframe", "error"); break; }
 
+      // 先展开所有章节，再获取视频列表
+      await cf.evaluate(() => {
+        document.querySelectorAll(".catalog_title.chapter_Thats_bnt").forEach(el => el.click());
+      });
+      await sleep(2000);
+
       // 获取所有视频知识ID
       const clazzId = course.clazzId;
       const videoItems = await cf.evaluate((_clazzId) => {
@@ -115,26 +121,36 @@ async function main() {
         const v = pendingVideos[i];
         log(`\n[${i+1}/${pendingVideos.length}] ${v.name}`, "step");
 
-        const heartbeatParams = await autoWatchVideo(page, cf, course, v.knowledgeId);
+        const ok = await autoWatchVideo(page, cf, course, v.knowledgeId);
         
-        if (heartbeatParams) {
-          await simulateWatch(page, heartbeatParams);
+        if (ok) {
+          log(`${v.name} ✅`, "success");
           
           // 回到章节页面继续
-          await page.goto(course.url, { waitUntil: "domcontentloaded", timeout: 20000 });
-          await sleep(2000);
-          await page.evaluate(() => {
-            const tab = Array.from(document.querySelectorAll("span, a, li, div"))
-              .find(el => el.textContent.trim() === "章节");
-            if (tab) tab.click();
-          });
-          await sleep(5000);
-          for (const f of page.frames()) {
-            if (f.url().includes("studentcourse")) { cf = f; break; }
+          if (i < pendingVideos.length - 1) {
+            log("准备下一个视频...", "step");
+            await page.goto(course.url, { waitUntil: "domcontentloaded", timeout: 20000 });
+            await sleep(2000);
+            await page.evaluate(() => {
+              const tab = Array.from(document.querySelectorAll("span, a, li, div"))
+                .find(el => el.textContent.trim() === "章节");
+              if (tab) tab.click();
+            });
+            await sleep(5000);
+            for (const f of page.frames()) {
+              if (f.url().includes("studentcourse")) { cf = f; break; }
+            }
+            if (cf) {
+              await cf.evaluate(() => {
+                document.querySelectorAll(".catalog_title.chapter_Thats_bnt").forEach(el => el.click());
+              });
+              await sleep(2000);
+            }
           }
         }
       }
 
+      log(`\n🎉 全部完成! ${pendingVideos.length} 个视频处理完毕`, "success");
       break;
     }
     
