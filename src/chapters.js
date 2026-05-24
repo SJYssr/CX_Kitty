@@ -4,16 +4,22 @@ import { log, sleep } from "./utils.js";
  * 进入课程详情并获取章节列表
  */
 export async function fetchChapters(page, courseUrl) {
-  log(`进入课程: ${courseUrl.slice(0, 80)}...`, "step");
+  log(`进入课程...`, "step");
   await page.goto(courseUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
   await sleep(2000);
 
   // 点击"章节"tab
-  await page.evaluate(() => {
+  const clicked = await page.evaluate(() => {
     const tab = Array.from(document.querySelectorAll("span, a, li, div"))
       .find(el => el.textContent.trim() === "章节");
-    if (tab) tab.click();
+    if (tab) { tab.click(); return true; }
+    return false;
   });
+  
+  if (!clicked) {
+    log("未找到章节tab", "warn");
+    return [];
+  }
   
   log("等待章节内容加载...", "step");
   await sleep(5000);
@@ -21,8 +27,7 @@ export async function fetchChapters(page, courseUrl) {
   // 找章节iframe
   let chapterFrame = null;
   for (const f of page.frames()) {
-    const url = f.url();
-    if (url.includes("studentcourse")) {
+    if (f.url().includes("studentcourse")) {
       chapterFrame = f;
       break;
     }
@@ -33,75 +38,78 @@ export async function fetchChapters(page, courseUrl) {
     return [];
   }
 
-  // 从iframe中解析章节
+  // 解析章节树
   const chapters = await chapterFrame.evaluate(() => {
-    const result = [];
-    const chapters = document.querySelectorAll(".posCatalog_chapter");
-
-    chapters.forEach((ch) => {
-      // 章节标题
-      const titleEl = ch.querySelector(".catalog_name, .name, .chapter_name, .catalog-name, .posCatalog_name");
+    const units = document.querySelectorAll(".chapter_unit");
+    
+    return Array.from(units).map(unit => {
+      // 章节标题（取第一个数字开头的文本）
+      const titleEl = unit.querySelector(".chapter_td");
       const title = titleEl?.textContent?.trim()?.replace(/\s+/g, " ") || "";
-
-      if (!title || title.length < 3) return;
-
-      // 该章节下的任务统计
-      const totalJobs = ch.querySelectorAll(".posCatalog_jobs .job, [class*=job]");
-      const completedJobs = ch.querySelectorAll(".jobFinished, .finish, .finishTotal, [class*=finish]");
       
-      // 找出该章节下各任务的详情
-      const jobs = Array.from(ch.querySelectorAll(".posCatalog_jobs .job, [class*=job], .posCatalog_level"))
-        .map(job => {
-          const jobNameEl = job.querySelector(".catalog_name, .name, .job_name, a, span");
-          const jobStatusEl = job.querySelector(".jobFinished, .finish, .finishTotal, .state, .status, [class*=finish]");
-          const jobLink = job.querySelector("a[href]");
-          
-          let jobName = jobNameEl?.textContent?.trim()?.replace(/\s+/g, " ") || "";
-          const isFinished = job.textContent.includes("已完成");
-          const isVideo = jobName.includes("视频") || job.querySelector("img[src*=video], [class*=ico-video]");
-          
-          return {
-            name: jobName,
-            isFinished,
-            isVideo: !!isVideo,
-            url: jobLink?.href || ""
-          };
-        })
-        .filter(j => j.name.length > 2);
+      // 该章下的子项
+      const items = unit.querySelectorAll(".chapter_item");
+      const jobItems = Array.from(items).map(item => {
+        const nameEl = item.querySelector(".catalog_name.newCatalog_name");
+        const name = nameEl?.textContent?.trim()?.replace(/\s+/g, " ") || "";
+        
+        const isFinished = !!item.querySelector(".icon_yiwanc");
+        
+        // 找链接
+        const link = item.querySelector("a[href]");
+        
+        // 任务点数量
+        const taskEl = item.querySelector(".knowledgeJobCount");
+        const taskCount = taskEl ? parseInt(taskEl.textContent) || 0 : 0;
+        
+        // 进度条
+        const progressEl = item.querySelector(".catalog_ressbar_width");
+        const progress = progressEl?.style?.width || "";
+        
+        return {
+          name,
+          isFinished,
+          url: link?.href || "",
+          taskCount,
+          progress
+        };
+      }).filter(j => j.name.length > 0);
 
-      // 统计
-      const pending = ch.textContent.match(/(\d+)个待完成任务点/);
-      const completed = ch.textContent.match(/(\d+)\/(\d+)/);
-      
-      result.push({
+      // 统计该章任务数
+      const allTasks = jobItems.reduce((s, j) => s + j.taskCount, 0);
+      const doneTasks = jobItems.filter(j => j.isFinished).length;
+      const pendingFromText = unit.textContent.match(/(\d+)个待完成任务点/);
+
+      return {
         title,
-        jobs,
-        pending: pending ? parseInt(pending[1]) : 0,
-        jobCount: jobs.length,
-        hasVideo: jobs.some(j => j.isVideo)
-      });
-    });
-
-    return result;
+        items: jobItems,
+        totalTasks: allTasks,
+        doneCount: doneTasks,
+        pending: pendingFromText ? parseInt(pendingFromText[1]) : 0
+      };
+    }).filter(ch => ch.title.length > 0);
   });
 
   if (chapters.length === 0) {
-    // 兜底：纯文本解析
-    const text = await chapterFrame.evaluate(() => document.body.innerText.replace(/\s+/g, " ").trim());
-    log("章节结构解析失败，原始文本:", "warn");
-    log(text.slice(0, 500), "info");
+    log("章节解析失败", "error");
     return [];
   }
 
-  // 显示
-  log(`📚 ${chapters.length} 个章节:`, "success");
+  // 美观输出
+  const totalPending = chapters.reduce((s, c) => s + c.pending, 0);
+  log(`📚 ${chapters.length} 章, ${totalPending} 个待完成任务点:`, "success");
+  
   chapters.forEach((ch, i) => {
-    const pend = ch.pending > 0 ? ` ⚠️ ${ch.pending}个待完成` : " ✅";
-    console.log(`  ${String(i + 1).padEnd(3)}${ch.title}${pend}`);
-    ch.jobs.forEach(j => {
-      const icon = j.isVideo ? "🎬" : j.name.includes("课件") || j.name.includes("教材") ? "📖" : j.name.includes("阅读") || j.name.includes("作业") ? "📝" : "📎";
-      const status = j.isFinished ? " ✅" : j.isVideo ? " ⚠️" : "";
-      console.log(`       ${icon} ${j.name}${status}`);
+    const status = ch.pending > 0 ? ` ⚠️ ${ch.pending}待完成` : " ✅ 已完成";
+    console.log(`  ${String(i + 1).padEnd(3)}${ch.title}${status}`);
+    
+    ch.items.forEach(j => {
+      const icon = j.name.includes("视频") ? "🎬" : 
+                   j.name.includes("课件") ? "📖" : 
+                   j.name.includes("教材") ? "📖" : 
+                   j.name.includes("阅读") ? "📝" : "📎";
+      const stat = j.isFinished ? " ✅" : j.taskCount > 0 ? ` ⚠️ (${j.taskCount}任务)` : "";
+      console.log(`       ${icon} ${j.name}${stat}`);
     });
   });
 
