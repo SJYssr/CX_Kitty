@@ -416,22 +416,31 @@ export class Chaoxing {
     const fid = this.getFid();
     const url = `https://mooc1.chaoxing.com/ananas/status/${objectId}?k=${fid}&flag=normal&_dc=${Date.now()}`;
 
-    try {
-      await this.rateLimiter.acquire({ random: { min: 0, max: 2000 } });
-      const resp = await this.axios.get(url, { headers: cfg.videoHeaders, timeout: 15000 });
+    for (let retry = 0; retry < 3; retry++) {
+      if (retry > 0) await new Promise(r => setTimeout(r, 3000));
+      try {
+        await this.rateLimiter.acquire({ random: { min: 0, max: 2000 } });
+        const resp = await this.axios.get(url, { headers: cfg.videoHeaders, timeout: 15000 });
 
-      if (resp.data && resp.data.status === 'success') {
-        return {
-          dtoken: resp.data.dtoken || '',
-          duration: resp.data.duration || 0,
-          crc: resp.data.crc || '',
-          key: resp.data.key || ''
-        };
+        if (resp.data && resp.data.status === 'success') {
+          return {
+            dtoken: resp.data.dtoken || '',
+            duration: resp.data.duration || 0,
+            crc: resp.data.crc || '',
+            key: resp.data.key || ''
+          };
+        }
+
+        // 如果返回了数据但 status 不是 success（如 404），尝试重新登录后重试
+        if (retry === 0 && this.account.password) {
+          logger.info('视频状态异常，尝试重新登录...');
+          await this.login(false);
+        }
+      } catch (_) {
+        // 网络错误等，继续重试
       }
-      return null;
-    } catch (_) {
-      return null;
     }
+    return null;
   }
 
   /**
