@@ -242,7 +242,8 @@ async function terminateTask(taskId) {
       ElMessage.success('任务已终止')
       loadTasks()
       if (currentTask.value?.id === taskId) {
-        currentTask.value.status = 'terminated'
+        if (timer) { clearInterval(timer); timer = null }
+        currentTask.value = null
       }
     } else {
       ElMessage.error(data.message || '终止失败')
@@ -261,9 +262,9 @@ onMounted(() => {
   }).then(r => {
     if (!r.data.success || !r.data.tasks?.length) return
     const latest = r.data.tasks[0]
-    // Always show the latest task card
-    currentTask.value = latest
+    // 仅在任务进行中时显示进度卡片
     if (latest.status === 'running') {
+      currentTask.value = latest
       startPolling(latest.id)
     }
     // Notification for completed tasks (only once per task)
