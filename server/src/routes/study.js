@@ -74,6 +74,16 @@ router.post('/study/start', async (req, res) => {
        VALUES (?, ?, ?, ?, 'running', NOW())`,
       [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
     );
+
+    // 每个用户只保留最新 2 条记录
+    await pool.query(
+      `DELETE FROM study_tasks WHERE account_id = ? AND id NOT IN (
+        SELECT id FROM (
+          SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2
+        ) AS t
+      )`,
+      [accounts[0].id, accounts[0].id]
+    );
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）
@@ -126,7 +136,7 @@ router.get('/study/tasks', async (req, res) => {
       sql += ' WHERE account_id = (SELECT id FROM accounts WHERE phone = ?)';
       params.push(phone);
     }
-    sql += ' ORDER BY id DESC LIMIT 20';
+    sql += ' ORDER BY id DESC LIMIT 2';
     const [rows] = await pool.query(sql, params);
     res.json({ success: true, tasks: rows });
   } catch (err) {

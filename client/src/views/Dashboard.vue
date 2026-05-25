@@ -3,7 +3,7 @@
     <header class="topbar">
       <span class="brand">CX_Kitty</span>
       <span class="user">{{ account.name || account.phone }}</span>
-      <el-button size="small" @click="$emit('config')">配置</el-button>
+      <el-button size="small" @click="configVisible = true">配置</el-button>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
 
@@ -30,7 +30,6 @@
             </div>
             <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:16px">
               倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 1 }}
-              <el-button link size="small" @click="configVisible = true" style="margin-left:4px">修改</el-button>
             </div>
             <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
               {{ starting ? '启动中…' : startBtnText }}
@@ -346,9 +345,10 @@ onMounted(() => {
   loadCourses()
   loadTasks()
   fetchSystemLoad()
-  // 如果没有配置过 DeepSeek Key，自动弹出配置弹窗
-  if (!props.account?.deepseekApiKey) {
+  // 首次登录且无 DeepSeek Key 时自动弹出配置
+  if (!localStorage.getItem('cx_config_shown') && !props.account?.deepseekApiKey) {
     configVisible.value = true
+    localStorage.setItem('cx_config_shown', '1')
   }
   loadTimer = setInterval(fetchSystemLoad, 1000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
