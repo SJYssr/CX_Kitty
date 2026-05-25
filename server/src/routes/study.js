@@ -1,25 +1,14 @@
 import { Router } from 'express';
-import { fork } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
+import axios from 'axios';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = Router();
 
 // 获取课程列表 — fork 子进程隔离 SessionManager 单例
 // 系统状态
-router.get('/system/status', async (req, res) => {
-  try {
-    const [taskRows] = await pool.query("SELECT COUNT(*) AS count FROM study_tasks WHERE status = 'running'");
-    const [userRows] = await pool.query('SELECT COUNT(*) AS count FROM accounts');
-    res.json({ success: true, runningTasks: taskRows[0].count, maxTasks: 100, totalUsers: userRows[0].count });
-  } catch (err) {
-    res.json({ success: false, message: err.message });
-  }
-});
-
 router.get('/system/task-count', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -36,33 +25,16 @@ router.post('/courses', async (req, res) => {
     const { phone, password } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    const child = fork(path.resolve(__dirname, '../get-courses.js'), [phone, password], {
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc']
-    });
+    const jar = new CookieJar();
+    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const { Chaoxing } = await import('../../src/core/chaoxing.js');
+    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
 
-    const timeout = setTimeout(() => {
-      child.kill();
-      res.json({ success: false, message: '登录超时' });
-    }, 30000);
+    const loginResult = await chaoxing.login(false);
+    if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
 
-    child.on('message', (msg) => {
-      clearTimeout(timeout);
-      res.json(msg);
-    });
-
-    child.on('exit', (code) => {
-      clearTimeout(timeout);
-      if (!res.headersSent) {
-        res.json({ success: false, message: `子进程退出 (code=${code})` });
-      }
-    });
-
-    child.on('error', () => {
-      clearTimeout(timeout);
-      if (!res.headersSent) {
-        res.json({ success: false, message: '子进程异常' });
-      }
-    });
+    const courses = await chaoxing.getCourseList();
+    res.json({ success: true, courses });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }
