@@ -25,12 +25,12 @@
 
         <div class="col">
           <div class="panel" style="text-align:center;padding:32px 20px">
-            <div style="font-size:12px;color:#909399;margin-bottom:8px">
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px">
               系统负载: <span :class="systemLoadClass">{{ runningTaskCount }}/{{ maxTaskCount }}</span>
             </div>
-            <div style="font-size:13px;color:#909399;margin-bottom:16px">
+            <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:16px">
               倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 1 }}
-              <el-button link size="small" @click="$emit('config')" style="margin-left:4px">修改</el-button>
+              <el-button link size="small" @click="configVisible = true" style="margin-left:4px">修改</el-button>
             </div>
             <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
               {{ starting ? '启动中…' : startBtnText }}
@@ -123,7 +123,7 @@
             <div class="detail-course-meta">{{ c.teacher }} · {{ c.courseId }}</div>
           </div>
         </div>
-        <div v-else style="color:#909399;font-size:13px">暂无课程数据</div>
+        <div v-else style="color:rgba(255,255,255,0.6);font-size:13px">暂无课程数据</div>
       </template>
     </el-dialog>
   </div>
@@ -415,6 +415,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: space-between;
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
+:deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
 .load-ok { color: #67c23a; font-weight: 600; }
 .detail-course-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .detail-course-item:last-child { border-bottom: none; }
@@ -427,4 +428,39 @@ onUnmounted(() => {
 .course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
 .course-detail { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; text-align: right; }
 .course-bar { margin-bottom: 2px; }
+
+/* 表格毛玻璃 */
+:deep(.el-table) { background: transparent; color: #fff; }
+:deep(.el-table th) { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+:deep(.el-table tr) { background: transparent; }
+:deep(.el-table td) { background: transparent; border-bottom: 1px solid rgba(255,255,255,0.06); }
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) { background: rgba(255,255,255,0.04); }
+:deep(.el-table__body tr:hover > td) { background: rgba(255,255,255,0.08) !important; }
+:deep(.el-checkbox__inner) { background: transparent; border-color: rgba(255,255,255,0.3); }
+:deep(.el-pagination) { --el-pagination-text-color: rgba(255,255,255,0.7); }
+
+/* 按钮毛玻璃 */
+:deep(.el-button--default) { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff; }
+:deep(.el-button--default:hover) { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+:deep(.el-button--primary) { background: rgba(64,158,255,0.6); border-color: transparent; }
+:deep(.el-button--primary:hover) { background: rgba(64,158,255,0.8); }
+
+/* Dialog 毛玻璃 */
+:deep(.el-dialog) { background: rgba(0,0,0,0.5); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; }
+:deep(.el-dialog__title) { color: #fff; }
+:deep(.el-dialog__headerbtn .el-dialog__close) { color: rgba(255,255,255,0.6); }
+:deep(.el-dialog__headerbtn:hover .el-dialog__close) { color: #fff; }
+:deep(.el-dialog__body) { color: rgba(255,255,255,0.9); }
+
+/* 标签毛玻璃 */
+:deep(.el-tag) { --el-tag-bg-color: rgba(255,255,255,0.1); --el-tag-border-color: rgba(255,255,255,0.2); --el-tag-text-color: #fff; }
+:deep(.el-tag--danger) { --el-tag-bg-color: rgba(245,108,108,0.3); }
+:deep(.el-tag--warning) { --el-tag-bg-color: rgba(230,162,60,0.3); }
+:deep(.el-tag--success) { --el-tag-bg-color: rgba(103,194,58,0.3); }
+:deep(.el-tag--info) { --el-tag-bg-color: rgba(144,147,153,0.3); }
+
+/* 分页 */
+:deep(.el-pagination button) { background: transparent !important; color: rgba(255,255,255,0.7); }
+:deep(.el-pager li) { background: transparent !important; color: rgba(255,255,255,0.7); }
+:deep(.el-pager li.active) { color: rgba(64,158,255,0.9) !important; }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="config-page">
+  <div class="config-page" :class="{ 'dialog-mode': dialogMode }">
     <div class="card">
       
       <h1>AI 刷课配置</h1>
@@ -146,19 +146,26 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.config-page {
+.config-page.dialog-mode { padding: 0; }
+.config-page:not(.dialog-mode) {
   display: flex; justify-content: center; align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
 }
 .card {
-  background: #fff; border-radius: 16px; padding: 40px;
-  width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px; padding: 32px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.2);
+  text-align: center;
 }
 .logo { font-size: 56px; margin-bottom: 8px; text-align: center; }
-h1 { font-size: 22px; color: #303133; text-align: center; margin-bottom: 4px; }
-.phone { text-align: center; color: #909399; font-size: 13px; margin-bottom: 24px; }
+h1 { font-size: 22px; color: #fff; text-align: center; margin-bottom: 4px; }
+.phone { text-align: center; color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 24px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; text-align: center; }
 .balance-box {
   display: flex; align-items: center; justify-content: space-between;
