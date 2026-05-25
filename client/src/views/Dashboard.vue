@@ -327,7 +327,12 @@ const courseSummary = computed(() => {
 const currentCourse = computed(() => {
   const pc = courseProgress.value
   if (pc.length > 0) {
-    return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
+    return [...pc].sort((a, b) => {
+      // 未完成的排前面
+      if (a.finished !== b.finished) return a.finished ? 1 : -1
+      // 余量多的排前面（进度慢的优先展示）
+      return (b.total - b.completed) - (a.total - a.completed)
+    })[0]
   }
   return null
 })
