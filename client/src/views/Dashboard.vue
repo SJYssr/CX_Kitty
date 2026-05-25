@@ -52,6 +52,7 @@
                     :percentage="cp.percent"
                     :status="cp.finished ? 'success' : ''"
                     :stroke-width="10"
+                    :show-text="false"
                   />
                 </div>
                 <div class="course-detail">{{ cp.completed }}/{{ cp.total }} 章节</div>
@@ -60,7 +61,7 @@
 
             <!-- Fallback simple progress -->
             <div v-else>
-              <el-progress :percentage="taskPct" :status="taskPctStatus" :stroke-width="12" />
+              <el-progress :percentage="taskPct" :status="taskPctStatus" :stroke-width="12" :show-text="false" />
             </div>
 
             <p class="time">{{ currentTask.started_at?.slice(0,19) }} → {{ currentTask.finished_at?.slice(0,19) || '进行中' }}</p>
@@ -193,7 +194,7 @@ function onSelectionChange(selection) {
 const taskTag = computed(() =>
   ({ completed:'success', failed:'danger', running:'warning', terminated:'info' }[currentTask.value?.status] || 'info'))
 const taskText = computed(() =>
-  ({ completed:'✅ 完成', failed:'❌ 失败', running:'⏳ 进行中', terminated:'已终止' }[currentTask.value?.status] || '等待'))
+  ({ completed:'完成', failed:'失败', running:'进行中', terminated:'已终止' }[currentTask.value?.status] || '等待'))
 const taskPct = computed(() => {
   if (!currentTask.value) return 0
   if (currentTask.value.status === 'completed') return 100
