@@ -38,7 +38,7 @@ export class TikuDeepSeek extends Tiku {
 
   _buildPrompt(qInfo) {
     const { title, options, type } = qInfo;
-    let prompt = '你是一个专业的答题助手。请回答以下题目，只输出答案，不要输出任何解释或其他内容。\n\n';
+    let prompt = '你是一个专业的答题助手。请回答以下题目，只输出答案，不要Markdown格式，不要加粗，不要代码块，不要任何解释。\n\n';
 
     switch (type) {
       case 'single':
@@ -84,19 +84,13 @@ export class TikuDeepSeek extends Tiku {
       const body = {
         model: this._model,
         messages: [
-          { role: 'system', content: '你是一个专业的答题助手。只输出答案，不要任何解释。' },
+          { role: 'system', content: '你是专业的答题助手。只输出最终答案，不要推理过程，不要Markdown格式，不要加粗，不要代码块，不要任何多余字符。' },
           { role: 'user', content: this._buildPrompt(qInfo) }
         ],
-        temperature: 0.1,
-        max_tokens: 256,
+        temperature: 0.05,
+        max_tokens: 128,
         stream: false
       };
-
-      // v4-pro 模型支持思考模式
-      if (this._model === 'deepseek-v4-pro') {
-        body.thinking = { type: 'enabled' };
-        body.reasoning_effort = 'high';
-      }
 
       const resp = await fetch(DEEPSEEK_API, {
         method: 'POST',
@@ -121,15 +115,23 @@ export class TikuDeepSeek extends Tiku {
         return null;
       }
 
-      let answer = rawAnswer.replace(/[，。！？、：；"「」【】《》\,\.\!\?\:\;\(\)]/g, '').trim();
+      let answer = rawAnswer
+  .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')         // 去除 **加粗** 和 *斜体*
+  .replace(/`{1,3}[^`]*`{1,3}/g, '')                 // 去除 ```代码块``` 和 `行内代码`
+  .replace(/[，。！？、：；"「」【】《》\,\.\!\?\:\;\(\)#*_~`>\-]/g, '')
+  .trim();
 
       if (qInfo.type === 'single') {
         const letterMatch = answer.match(/[A-D]/);
-        if (letterMatch) answer = letterMatch[0];
+        if (letterMatch) answer = letterMatch[0]; else answer = answer.charAt(0);
       }
       if (qInfo.type === 'multiple') {
         const letters = answer.match(/[A-D]/g);
         if (letters) answer = [...new Set(letters)].sort().join('');
+      }
+      if (qInfo.type === 'judgement') {
+        const m = answer.match(/正确|错误|对|错|true|false|True|False/);
+        if (m) answer = m[0];
       }
 
       logger.info(`DeepSeek 答题: ${qInfo.title.slice(0, 30)}... → ${answer}`);
