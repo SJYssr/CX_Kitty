@@ -609,8 +609,6 @@ export class Chaoxing {
         }
       }
 
-      if (playTime >= duration) break;
-
       // 时间推进 (按倍速)
       const dt = (Date.now() - lastIter) * actualSpeed / 1000;
       playTime = Math.min(duration, playTime + dt);
@@ -623,32 +621,21 @@ export class Chaoxing {
       }
       process.stdout.write(`\r${progressStr}`);
 
-      await sleep(1000);
-    }
-
-    // 尝试多次上报确保完成
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await sleep(3000);
-
-      const finalResult = await this.videoProgressLog(
-        course, job, jobInfo, currentDtoken, duration, duration, type, attempt === 0 ? 3 : 4
-      );
-
-      if (finalResult.passed) {
-        if (process.stdout.clearLine) {
-          process.stdout.clearLine(0);
-          process.stdout.cursorTo(0);
-        }
-        logger.info(`${jobName} 完成`);
-        return StudyResult.SUCCESS;
+      // 到达末尾后继续上报直到通过（和 Python 原版一致）
+      if (playTime >= duration) {
+        await sleep(3000);
+        playTime = duration;
+      } else {
+        await sleep(1000);
       }
     }
 
+    // 正常不会走到这里，走到的概率极低
     if (process.stdout.clearLine) {
       process.stdout.clearLine(0);
       process.stdout.cursorTo(0);
     }
-
+    logger.warn(`${jobName} 超时未通过`);
     return StudyResult.ERROR;
   }
 
