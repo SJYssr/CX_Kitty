@@ -28,6 +28,11 @@ export async function runStudy(params) {
 
   const updateStatus = async (status, progress) => {
     try {
+      // 如果任务已被终止（新任务启动），不再覆盖其状态
+      if (status !== 'failed') {
+        const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
+        if (rows.length > 0 && rows[0].status === 'terminated') return;
+      }
       await pool.query(
         'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
         [status, progress || '{}', taskId]

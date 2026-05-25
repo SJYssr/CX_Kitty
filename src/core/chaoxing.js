@@ -814,10 +814,16 @@ export class Chaoxing {
       const params = new URLSearchParams(formData);
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const submitResp = await this.axios.post(
-        'https://mooc1.chaoxing.com/mooc-ans/api/work',
+        'https://mooc1.chaoxing.com/mooc-ans/work/addStudentWorkNew',
         params.toString(),
         {
-          headers: { ...cfg.headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: {
+            ...cfg.headers,
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Origin': 'https://mooc1.chaoxing.com'
+          },
           timeout: 15000
         }
       );
