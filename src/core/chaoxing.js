@@ -433,6 +433,7 @@ export class Chaoxing {
 
         // 如果返回的是下载链接(非标准ananas视频)，模拟完成
         if (resp.data && resp.data.download) {
+          logger.info(`下载视频响应: ${JSON.stringify(resp.data)}`);
           // 仍尝试发送心跳来真正完成视频（duration=1模拟播放1秒）
           return {
             dtoken: '',
@@ -599,9 +600,21 @@ export class Chaoxing {
       return StudyResult.SUCCESS;
     }
 
-    // 下载视频不是标准 ananas，无法通过心跳完成，直接跳过
+    // 下载视频不是标准 ananas，尝试最佳努力完成
     if (!dtoken) {
-      logger.info(`${jobName} 下载视频无法心跳，直接跳过`);
+      // 尝试一次完整进度心跳
+      const dlInit = await this.videoProgressLog(course, job, jobInfo, '', duration, duration, type, 4);
+      if (dlInit.passed) {
+        logger.info(`${jobName} 下载视频心跳完成`);
+        return StudyResult.SUCCESS;
+      }
+      // 尝试通过 API 标记完成
+      const completed = await this._completeDownloadJob(course, job, jobInfo, duration, type);
+      if (completed) {
+        logger.info(`${jobName} 下载视频标记完成`);
+        return StudyResult.SUCCESS;
+      }
+      logger.info(`${jobName} 下载视频无法完成，跳过`);
       return StudyResult.SUCCESS;
     }
 
@@ -682,6 +695,55 @@ export class Chaoxing {
     }
     logger.warn(`${jobName} 超时未通过`);
     return StudyResult.ERROR;
+  }
+
+  /**
+   * 尝试标记下载/外部视频完成
+   * @param {Object} course
+   * @param {Object} job
+   * @param {Object} jobInfo
+   * @param {number} duration
+   * @param {string} [type='Video']
+   * @returns {Promise<boolean>}
+   */
+  async _completeDownloadJob(course, job, jobInfo, duration, type = 'Video') {
+    const userid = await this.getUid();
+    const fid = this.getFid();
+    const enc = this.getEnc(course.clazzId, userid, job.jobid, job.objectid, duration || 1, duration || 1);
+
+    // 方式A: update-video-course-summary
+    try {
+      const url = 'https://mooc1.chaoxing.com/mooc-ans/mycourse/update-video-course-summary';
+      const resp = await this.axios.get(url, {
+        params: {
+          uid: userid,
+          schoolId: fid,
+          moocClassId: course.clazzId,
+          moocCourseId: course.courseId,
+          chapterId: (jobInfo && jobInfo.knowledgeid) || '',
+          objectId: job.objectid,
+          videoProgress: duration || 1,
+          totalVideoDuration: duration || 1,
+          enc
+        },
+        headers: cfg.videoHeaders,
+        timeout: 15000
+      });
+      logger.info(`update-video-course-summary: ${JSON.stringify(resp.data)}`);
+      return true;
+    } catch (e) {
+      logger.warn(`update-video-course-summary 失败: ${e.message}`);
+    }
+
+    // 方式B: 标准心跳（空 dtoken）
+    try {
+      const result = await this.videoProgressLog(course, job, jobInfo, '', duration || 1, duration || 1, type, 3);
+      logger.info(`下载视频心跳: passed=${result.passed}, status=${result.status}`);
+      return result.passed;
+    } catch (e) {
+      logger.warn(`下载视频心跳失败: ${e.message}`);
+    }
+    return false;
   }
 
   /**
