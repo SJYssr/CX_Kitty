@@ -86,6 +86,11 @@
           <el-table-column prop="jobs" label="并发" width="60" align="center" />
           <el-table-column prop="started_at" label="开始" min-width="140" />
           <el-table-column prop="finished_at" label="结束" min-width="140" />
+          <el-table-column label="课程" width="70" align="center">
+            <template #default="{row}">
+              <el-button size="small" link type="primary" @click="showTaskDetail(row)">查看</el-button>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="70" align="center">
             <template #default="{row}">
               <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
@@ -94,6 +99,25 @@
         </el-table>
       </section>
     </main>
+
+    <!-- 任务详情弹窗 -->
+    <el-dialog v-model="detailVisible" title="📋 任务课程详情" width="500px" :close-on-click-modal="true">
+      <template v-if="detailTask">
+        <div style="margin-bottom:12px">
+          任务 #{{ detailTask.id }} ·
+          <el-tag :type="{completed:'success',failed:'danger',running:'warning',terminated:'info'}[detailTask.status]||'info'" size="small">
+            {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[detailTask.status]||detailTask.status }}
+          </el-tag>
+        </div>
+        <div v-if="detailCourses.length" style="max-height:400px;overflow-y:auto">
+          <div v-for="c in detailCourses" :key="c.id" class="detail-course-item">
+            <div class="detail-course-title">{{ c.title }}</div>
+            <div class="detail-course-meta">{{ c.teacher }} · {{ c.courseId }}</div>
+          </div>
+        </div>
+        <div v-else style="color:#909399;font-size:13px">暂无课程数据</div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -114,8 +138,26 @@ const currentTask = ref(null)
 const tasks = ref([])
 const runningTaskCount = ref(0)
 const maxTaskCount = ref(100)
+const detailVisible = ref(false)
+const detailTask = ref(null)
 let timer = null
 let loadTimer = null
+
+const detailCourses = computed(() => {
+  if (!detailTask.value) return []
+  let ids = detailTask.value.course_ids
+  if (typeof ids === 'string') { try { ids = JSON.parse(ids) } catch { ids = [] } }
+  if (!Array.isArray(ids)) return []
+  return ids.map(id => {
+    const c = courses.value.find(c => c.courseId === id)
+    return { id, title: c?.title || '未知课程', teacher: c?.teacher || '' }
+  })
+})
+
+function showTaskDetail(task) {
+  detailTask.value = task
+  detailVisible.value = true
+}
 
 async function fetchSystemLoad() {
   try {
@@ -333,6 +375,10 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px;
 }
 .load-ok { color: #67c23a; font-weight: 600; }
+.detail-course-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.detail-course-item:last-child { border-bottom: none; }
+.detail-course-title { font-size: 14px; font-weight: 500; color: #303133; }
+.detail-course-meta { font-size: 12px; color: #909399; margin-top: 2px; }
 .load-full { color: #f56c6c; font-weight: 600; }
 .time { color: #909399; font-size: 12px; margin-top: 8px; text-align: center; }
 .course-progress { margin: 8px 0; max-height: 300px; overflow-y: auto; }
