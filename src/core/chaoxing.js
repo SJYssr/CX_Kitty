@@ -79,6 +79,7 @@ export class Chaoxing {
     }
 
     this.rateLimiter = new RateLimiter(1200);
+    if (options.fastMode) this.rateLimiter.setFastMode(true);
 
     this._uid = null;
     this._fid = DEFAULT_FID;
@@ -217,6 +218,11 @@ export class Chaoxing {
   /** MD5 签名 (委托给 cipher) */
   getEnc(clazzId, userid, jobid, objectId, playingTime, duration) {
     return getEnc(clazzId, userid, jobid, objectId, playingTime, duration);
+  }
+
+  /** 快速模式：跳过限速延迟 */
+  setFastMode(on) {
+    this.rateLimiter.setFastMode(on);
   }
 
   /** 时间戳 */

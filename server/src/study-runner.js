@@ -51,7 +51,7 @@ export async function runStudy(params) {
           `UPDATE study_tasks SET progress = JSON_SET(
             COALESCE(progress, '{}'),
             '$.timestamp', ?,
-            '$.logs', COALESCE(JSON_ARRAY_APPEND(JSON_EXTRACT(progress, '$.logs'), '$', CAST(? AS JSON)), JSON_ARRAY(?))
+            '$.logs', COALESCE(JSON_ARRAY_APPEND(JSON_EXTRACT(progress, '$.logs'), '$', CAST(? AS JSON)), JSON_ARRAY(CAST(? AS JSON)))
           ) WHERE id = ?`,
           [new Date().toISOString(), JSON.stringify(entry), JSON.stringify(entry), taskId]
         ).catch(() => {});
@@ -65,9 +65,9 @@ export async function runStudy(params) {
         const courseData = JSON.stringify({ title: msg.courseTitle, total: msg.total, completed: msg.completed });
         await pool.query(
           `UPDATE study_tasks SET progress = JSON_SET(
-            COALESCE(progress, '{}'),
+            JSON_SET(COALESCE(progress, '{}'), '$.courses', COALESCE(JSON_EXTRACT(progress, '$.courses'), CAST('{}' AS JSON))),
             '$.timestamp', ?,
-            '$.courses.${cid}', ?
+            '$.courses."${cid}"', CAST(? AS JSON)
           ) WHERE id = ?`,
           [new Date().toISOString(), courseData, taskId]
         ).catch(() => {});

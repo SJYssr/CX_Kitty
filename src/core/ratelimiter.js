@@ -29,18 +29,23 @@ export class RateLimiter {
     const now = Date.now();
     const elapsed = now - this.lastCall;
 
-    if (elapsed < this.minInterval) {
+    if (!this._fastMode && elapsed < this.minInterval) {
       await sleep(this.minInterval - elapsed);
     }
 
-    // 额外随机等待
-    if (options.random) {
+    // 额外随机等待（快速模式跳过）
+    if (!this._fastMode && options.random) {
       const { min = 0, max = 0 } = options.random;
       const extra = Math.floor(Math.random() * (max - min + 1)) + min;
       if (extra > 0) await sleep(extra);
     }
 
     this.lastCall = Date.now();
+  }
+
+  /** 快速模式：跳过所有延迟 */
+  setFastMode(on) {
+    this._fastMode = !!on;
   }
 
   /** 重置计时 */
