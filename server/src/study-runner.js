@@ -70,18 +70,18 @@ export async function runStudy(params) {
     }
 
     const allCourses = await chaoxing.getCourseList();
-    let targetCourses = allCourses;
-    if (courseIds && courseIds.length > 0) {
-      const matched = allCourses.filter(c => courseIds.includes(c.courseId));
-      if (matched.length > 0) {
-        targetCourses = matched;
-      }
-      // 没有匹配的课程就刷所有课程，不报错跳过
+
+    // 用户没选课 → 不刷，直接完成
+    if (!courseIds || courseIds.length === 0) {
+      await updateStatus('completed', JSON.stringify({ note: '未选择课程' }));
+      return;
     }
 
-    if (!targetCourses.length) {
-      await updateStatus('completed', JSON.stringify({ note: '无可用课程' }));
-      return;
+    // 筛选用户选择的课程
+    let targetCourses = allCourses.filter(c => courseIds.includes(c.courseId));
+    if (targetCourses.length === 0) {
+      // 一个都没匹配上 → 刷所有课程
+      targetCourses = allCourses;
     }
 
     for (const course of targetCourses) {
