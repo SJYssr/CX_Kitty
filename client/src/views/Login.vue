@@ -29,7 +29,6 @@
         </el-button>
       </el-form>
 
-      <p v-if="error" class="error">{{ error }}</p>
     </div>
     <div class="copyright">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
     <div class="disclaimer">
@@ -41,13 +40,13 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Phone, Lock } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const emit = defineEmits(['login'])
 const formRef = ref(null)
 const loading = ref(false)
-const error = ref('')
 const taskCount = ref(0)
 const maxTasks = ref(100)
 let countTimer = null
@@ -69,18 +68,17 @@ async function fetchTaskCount() {
 }
 
 async function handleLogin() {
-  if (taskCount.value >= 100) { error.value = '服务器已满，请稍后再试'; return }
+  if (taskCount.value >= 100) { ElMessage.warning('服务器已满，请稍后再试'); return }
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   loading.value = true
-  error.value = ''
   try {
     const { data } = await axios.post('/api/login', form.value)
-    if (!data.success) { error.value = data.message || '超星登录失败'; return }
+    if (!data.success) { ElMessage.error(data.message || '超星登录失败'); return }
     await axios.post('/api/account/save', form.value).catch(() => {})
     axios.post('/api/account/info', form.value).catch(() => {})
     emit('login', { phone: form.value.phone, password: form.value.password })
-  } catch { error.value = '无法连接服务器' }
+  } catch { ElMessage.error('无法连接服务器') }
   finally { loading.value = false }
 }
 
@@ -136,7 +134,6 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .desc { color: #909399; font-size: 14px; margin-bottom: 32px; }
 .desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
-.error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
 .copyright {
   position: fixed; bottom: 50px; left: 0; right: 0;
   text-align: center; font-size: 13px; color: rgba(255,255,255,0.4);
