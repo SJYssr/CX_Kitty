@@ -162,21 +162,48 @@ router.get('/study/logs/:taskId', (req, res) => {
   });
   res.write(':\n\n'); // 初始化
 
+  // 检查 phone 参数验证用户对该任务的归属
+  const phone = req.query.phone;
+  if (phone) {
+    pool.query(
+      'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
+      [taskId, phone]
+    ).then(([rows]) => {
+      if (!rows.length) {
+        res.writeHead(403);
+        res.end('forbidden');
+        return;
+      }
+    }).catch(() => {});
+  }
+
+  let destroyed = false;
+
+  const writeSafe = (data) => {
+    if (!destroyed && !res.writableEnded) {
+      try { res.write(data); } catch { destroyed = true; }
+    }
+  };
+
   const onLog = (entry) => {
-    try { res.write(`data: ${JSON.stringify(entry)}\n\n`); } catch {}
+    writeSafe(`data: ${JSON.stringify(entry)}\n\n`);
   };
 
   bus.on('log:' + taskId, onLog);
 
   // 30秒心跳保活，防止Node.js默认2分钟超时断线
   const keepAlive = setInterval(() => {
-    try { res.write(': ping\n\n'); } catch { clearInterval(keepAlive); }
+    writeSafe(': ping\n\n');
   }, 30000);
 
-  req.on('close', () => {
+  const cleanup = () => {
+    destroyed = true;
     clearInterval(keepAlive);
     bus.off('log:' + taskId, onLog);
-  });
+  };
+
+  req.on('close', cleanup);
+  req.on('error', cleanup);
 });
 
 export default router;

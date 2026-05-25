@@ -27,12 +27,17 @@ import { CookieJar } from 'tough-cookie';
 export async function runStudy(params) {
   const { phone, password, courseIds, speed, jobs, deepseekApiKey, autoSubmit, taskId, pool } = params;
 
+  let _terminated = false;
+
   const updateStatus = async (status, progress) => {
     try {
       // 如果任务已被终止（新任务启动），不再覆盖其状态
       if (status !== 'failed') {
         const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
-        if (rows.length > 0 && rows[0].status === 'terminated') return;
+        if (rows.length > 0 && rows[0].status === 'terminated') {
+          _terminated = true;
+          return;
+        }
       }
       await pool.query(
         'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
@@ -41,9 +46,21 @@ export async function runStudy(params) {
     } catch (e) { /* ignore */ }
   };
 
+  // 检查任务是否被终止（新任务替换了旧任务时）
+  const checkTerminated = async () => {
+    if (_terminated) return true;
+    try {
+      const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
+      return rows.length > 0 && rows[0].status === 'terminated';
+    } catch { return false; }
+  };
+
   const writeProgress = async (msg) => {
     try {
       if (msg.type === 'log' && msg.text) {
+        // 任务被终止后不再发射事件和写DB
+        if (_terminated) return;
+
         const entry = { t: new Date().toLocaleTimeString(), text: msg.text };
         bus.emit('log:' + taskId, entry);
         // 只追加日志，不碰 courses - 使用 JSON_SET 直接操作
@@ -122,13 +139,16 @@ export async function runStudy(params) {
     for (let ci = 0; ci < targetCourses.length; ci++) {
       const course = targetCourses[ci];
 
-      // 课程间随机延迟 10-30 秒
+      // 课程间随机延迟 10-30 秒前检查是否被终止
       if (ci > 0) {
+        if (await checkTerminated()) return;
         const delay = 10000 + Math.floor(Math.random() * 20000);
         await new Promise(r => setTimeout(r, delay));
       }
 
+      // 每次 getCoursePoint 后检查是否被终止
       const { points } = await chaoxing.getCoursePoint(course.courseId, course.clazzId, course.cpi);
+      if (await checkTerminated()) return;
       if (!points.length) continue;
 
       // 立即写入初始进度，让前端尽早显示 "0/N 章节"
