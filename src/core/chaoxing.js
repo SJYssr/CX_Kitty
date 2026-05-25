@@ -714,7 +714,7 @@ export class Chaoxing {
     // 方式A: update-video-course-summary
     try {
       const url = 'https://mooc1.chaoxing.com/mooc-ans/mycourse/update-video-course-summary';
-      const resp = await this.axios.get(url, {
+      const resp = await this.axios.post(url, null, {
         params: {
           uid: userid,
           schoolId: fid,
