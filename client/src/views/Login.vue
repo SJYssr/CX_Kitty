@@ -84,33 +84,53 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 .login-page {
   display: flex; justify-content: center; align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  position: relative;
+}
+.login-page::before {
+  content: "";
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80') center/cover no-repeat fixed;
+  filter: blur(8px);
+  z-index: -1;
+}
+.login-page::after {
+  content: "";
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: -1;
 }
 .task-bar {
   position: fixed; top: 0; left: 0; right: 0;
-  background: rgba(0,0,0,0.6); color: #fff;
+  background: rgba(0,0,0,0.5); color: #fff;
   text-align: center; padding: 6px; font-size: 13px;
-  z-index: 100; backdrop-filter: blur(4px);
+  z-index: 100; backdrop-filter: blur(8px);
 }
 .task-bar .ok { color: #67c23a; }
 .task-bar .full { color: #f56c6c; }
 .full-warning {
-  background: #fef0f0; color: #f56c6c;
+  background: rgba(254,240,240,0.9); color: #f56c6c;
   padding: 10px 16px; border-radius: 8px;
   font-size: 13px; margin-bottom: 16px;
 }
 .card {
-  background: #fff; border-radius: 16px; padding: 40px;
-  width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.1);
   text-align: center;
+  border: 1px solid rgba(255,255,255,0.2);
 }
 .logo { font-size: 56px; margin-bottom: 8px; }
-h1 { font-size: 24px; color: #303133; margin-bottom: 4px; }
+h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .desc { color: #909399; font-size: 14px; margin-bottom: 32px; }
+.desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
 .copyright {
   position: fixed; bottom: 12px; left: 0; right: 0;
-  text-align: center; font-size: 11px; color: rgba(255,255,255,0.5);
+  text-align: center; font-size: 11px; color: rgba(255,255,255,0.4);
 }
 </style>
