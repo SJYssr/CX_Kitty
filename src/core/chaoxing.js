@@ -57,6 +57,27 @@ export class Chaoxing {
       this.session = SessionManager.getInstance();
       this.axios = SessionManager.getSession();
     }
+
+    // 网络错误自动重试拦截器
+    if (this.axios) {
+      const MAX = 3;
+      this.axios.interceptors.response.use(
+        r => r,
+        async err => {
+          const cfg = err.config;
+          if (!cfg) throw err;
+          if (cfg._retry === undefined) cfg._retry = 0;
+          const retryable = !err.response || err.code === 'ECONNABORTED' || err.code === 'ECONNRESET' || (err.response && err.response.status >= 500);
+          if (retryable && cfg._retry < MAX) {
+            cfg._retry++;
+            await new Promise(r => setTimeout(r, cfg._retry * 1500 + Math.random() * 1000));
+            return this.axios(cfg);
+          }
+          throw err;
+        }
+      );
+    }
+
     this.rateLimiter = new RateLimiter(1200);
 
     this._uid = null;
