@@ -32,6 +32,7 @@
       <p v-if="error" class="error">{{ error }}</p>
     </div>
     <div class="copyright">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
+    <div class="disclaimer">该项目如果对您造成不良后果，需要您个人承担 一切解释权归SJYssr所有</div>
   </div>
 </template>
 
@@ -134,8 +135,13 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
 .copyright {
-  position: fixed; bottom: 12px; left: 0; right: 0;
+  position: fixed; bottom: 26px; left: 0; right: 0;
   text-align: center; font-size: 11px; color: rgba(255,255,255,0.4);
+}
+
+.disclaimer {
+  position: fixed; bottom: 10px; left: 0; right: 0;
+  text-align: center; font-size: 10px; color: rgba(255,255,255,0.25);
 }
 
 .notice-marquee {
