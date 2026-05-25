@@ -49,8 +49,14 @@ export class Chaoxing {
     this.jobs = options.jobs || 3;
     this.notopenAction = options.notopenAction || 'continue';
 
-    this.session = SessionManager.getInstance();
-    this.axios = SessionManager.getSession();
+    // 支持传入独立 session（多账号并发时使用）
+    if (options._standaloneSession) {
+      this.session = null;
+      this.axios = options._standaloneSession;
+    } else {
+      this.session = SessionManager.getInstance();
+      this.axios = SessionManager.getSession();
+    }
     this.rateLimiter = new RateLimiter(500);
 
     this._uid = null;

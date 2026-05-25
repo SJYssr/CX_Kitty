@@ -4,9 +4,11 @@
  */
 
 import { Chaoxing } from '../../src/core/chaoxing.js';
-import { SessionManager } from '../../src/core/session.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
+import axios from 'axios';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 
 /**
  * 在进程内运行刷课任务
@@ -58,8 +60,10 @@ export async function runStudy(params) {
     const tiku = new TikuDeepSeek(deepseekApiKey || '');
     tiku.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
 
-    new SessionManager();
-    const chaoxing = new Chaoxing({ phone, password }, tiku, { speed: speed || 1, jobs: jobs || 3 });
+    // 每个任务创建独立的 session，避免串号
+    const jar = new CookieJar();
+    const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const chaoxing = new Chaoxing({ phone, password }, tiku, { speed: speed || 1, jobs: jobs || 3, _standaloneSession: standaloneSession });
     chaoxing._taskId = taskId;
     chaoxing._onProgress = writeProgress;
 
