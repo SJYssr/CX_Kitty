@@ -73,7 +73,7 @@
           📋 任务记录
           <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
         </div>
-        <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%">
+        <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
           <el-table-column prop="id" label="#" width="50" />
           <el-table-column label="状态" width="80">
             <template #default="{row}">
