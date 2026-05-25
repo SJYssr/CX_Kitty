@@ -60,18 +60,18 @@ export class JobProcessor {
       const batchResults = await Promise.all(batch.map(t => t()));
       results.push(...batchResults);
 
-      if (process.send && this.chaoxing._taskId) {
+      if (this.chaoxing._taskId) {
         const doneCount = results.filter(r => r === ChapterResult.SUCCESS).length;
-        const processedCount = results.length;
-        process.send({
+        const msg = {
           type: 'chapter_progress',
           taskId: this.chaoxing._taskId,
           courseTitle: this.course.title,
           courseId: this.course.courseId,
           total: this.chapterPoints.length,
-          completed: doneCount,
-          processed: processedCount
-        });
+          completed: doneCount
+        };
+        if (typeof process.send === 'function') process.send(msg);
+        if (typeof this.chaoxing._onProgress === 'function') this.chaoxing._onProgress(msg);
       }
     }
 
