@@ -158,7 +158,8 @@ const taskLogs = computed(() => {
   if (!currentTask.value) return []
   let p = currentTask.value.progress
   if (typeof p === 'string') { try { p = JSON.parse(p) } catch { p = null } }
-  return p?.logs || []
+  const logs = p?.logs || []
+  return logs.slice(-20)
 })
 
 const detailCourses = computed(() => {
