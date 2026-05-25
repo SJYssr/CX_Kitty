@@ -3,6 +3,7 @@ import { fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
+import { runStudy } from '../study-runner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -45,19 +46,17 @@ router.post('/courses', async (req, res) => {
   }
 });
 
-// 启动刷课任务
+// 启动刷课任务（进程内运行，无需 fork）
 router.post('/study/start', async (req, res) => {
   try {
     const {
-      phone, password,
-      courseIds, speed = 1, jobs = 3,
-      deepseekApiKey = '', deepseekModel = 'deepseek-v4-flash',
-      enableAnswering = true, autoSubmit = false
+      phone, password, courseIds, speed = 1, jobs = 3,
+      deepseekApiKey = '', autoSubmit = false
     } = req.body;
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    // 先查/创建 account
+    // 查/创建 account
     let [accounts] = await pool.query(
       'SELECT id FROM accounts WHERE phone = ?', [phone]
     );
@@ -69,6 +68,13 @@ router.post('/study/start', async (req, res) => {
       accounts = [{ id: insertRes.insertId }];
     }
 
+    // 终止该账号所有正在运行的任务
+    await pool.query(
+      'UPDATE study_tasks SET status = ?, finished_at = NOW() WHERE account_id = ? AND status = ?',
+      ['terminated', accounts[0].id, 'running']
+    );
+
+    // 创建新任务记录
     const [result] = await pool.query(
       `INSERT INTO study_tasks (account_id, course_ids, speed, jobs, status, started_at)
        VALUES (?, ?, ?, ?, 'running', NOW())`,
@@ -76,74 +82,14 @@ router.post('/study/start', async (req, res) => {
     );
     const taskId = result.insertId;
 
-    const cliPath = path.resolve(__dirname, '../../../src/index.js');
-    const args = ['-u', phone, '-p', password, '-s', String(speed), '-j', String(jobs), '--task-id', String(taskId)];
-    if (courseIds?.length) args.push('-l', courseIds.join(','));
-
-    // AI 配置
-    if (!enableAnswering) {
-      args.push('--tk-disable');
-    } else {
-      if (autoSubmit) args.push('--tk-submit');
-      if (deepseekModel && deepseekModel !== 'deepseek-v4-flash') {
-        args.push('--tk-model', deepseekModel);
-      }
-    }
-
-    // 只传该用户的 API key
-    const childEnv = { ...process.env };
-    if (deepseekApiKey) {
-      childEnv.DEEPSEEK_API_KEY = deepseekApiKey;
-    }
-
-    const child = fork(cliPath, args, {
-      env: childEnv,
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc']
-    });
-
-    let output = '';
-    child.stdout?.on('data', d => output += d.toString());
-    child.stderr?.on('data', d => output += d.toString());
-
-    child.on('exit', async (code) => {
-      await pool.query(
-        'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
-        [code === 0 ? 'completed' : 'failed',
-         JSON.stringify({ exitCode: code, output: output.slice(0, 5000) }), taskId]
-      );
-    });
-
-    child.on('error', async (err) => {
-      await pool.query(
-        'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
-        ['failed', err.message, taskId]
-      );
-    });
-
-    child.on('message', async (msg) => {
-      if (msg.type === 'chapter_progress') {
-        try {
-          const [existing] = await pool.query(
-            'SELECT progress FROM study_tasks WHERE id = ?', [taskId]
-          );
-          let progData = { courses: {}, timestamp: new Date().toISOString() };
-          if (existing[0]?.progress) {
-            try { progData = JSON.parse(existing[0].progress); } catch {}
-          }
-          if (!progData.courses) progData.courses = {};
-          progData.courses[msg.courseId] = {
-            title: msg.courseTitle,
-            total: msg.total,
-            completed: msg.completed
-          };
-          progData.timestamp = new Date().toISOString();
-          await pool.query(
-            'UPDATE study_tasks SET progress = ? WHERE id = ?',
-            [JSON.stringify(progData), taskId]
-          );
-        } catch (e) { /* ignore */ }
-      }
-    });
+    // 后台运行（不阻塞 HTTP）
+    runStudy({ phone, password, courseIds, speed, jobs, deepseekApiKey, autoSubmit, taskId, pool })
+      .catch(err => {
+        pool.query(
+          'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
+          ['failed', err.message || String(err), taskId]
+        ).catch(() => {});
+      });
 
     res.json({ success: true, taskId });
   } catch (err) {
