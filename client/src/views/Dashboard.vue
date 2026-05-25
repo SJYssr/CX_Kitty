@@ -103,9 +103,10 @@
               <el-button size="small" link @click="showTaskDetail(row)" class="link-btn">查看</el-button>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="70" align="center">
+          <el-table-column label="操作" width="100" align="center">
             <template #default="{row}">
               <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
+              <el-button v-if="row.status==='terminated'" size="small" type="primary" plain @click="rerunTask(row)">运行</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -431,6 +432,39 @@ async function start() {
         status: 'running',
         course_ids: selectedCourses.value.length > 0 ? selectedCourses.value : null
       }
+      loadTasks()
+      startPolling(data.taskId)
+    } else {
+      ElMessage.error(data.message || '启动失败')
+    }
+  } catch (err) {
+    ElMessage.error('启动失败: ' + (err.response?.data?.message || err.message))
+  } finally { starting.value = false }
+}
+
+async function rerunTask(task) {
+  let courseIds = task.course_ids
+  if (typeof courseIds === 'string') { try { courseIds = JSON.parse(courseIds) } catch { courseIds = [] } }
+  if (!Array.isArray(courseIds) || !courseIds.length) {
+    ElMessage.warning('该任务没有课程数据，请重新选择课程')
+    return
+  }
+  starting.value = true
+  try {
+    const { data } = await axios.post('/api/study/start', {
+      phone: props.account.phone,
+      password: props.account.password,
+      courseIds,
+      speed: 1,
+      jobs: 1,
+      deepseekApiKey: props.account.deepseekApiKey || '',
+      deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
+      enableAnswering: props.account.enableAnswering !== false,
+      autoSubmit: !!props.account.autoSubmit
+    })
+    if (data.success) {
+      ElMessage.success('任务已重新启动')
+      currentTask.value = { id: data.taskId, status: 'running', course_ids: courseIds }
       loadTasks()
       startPolling(data.taskId)
     } else {
