@@ -26,7 +26,7 @@
           </div>
         </div>
 
-        <div class="col">
+        <div class="col col-right">
           <div class="panel task-log-panel">
             <div class="panel-header">
               任务日志
@@ -559,7 +559,10 @@ onUnmounted(() => {
 .system-load { color: rgba(255,255,255,0.6); font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
-.col { flex: 1; min-width: 300px; }
+.col { flex: 1; min-width: 300px; display: flex; flex-direction: column; }
+.col > .panel { flex: 1; display: flex; flex-direction: column; }
+.col > .panel .el-table { max-height: 400px; }
+.log-container { overflow: hidden; }
 .panel {
   background: rgba(255,255,255,0.12);
   backdrop-filter: blur(16px);
@@ -573,8 +576,7 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
-.col:has(.task-log-panel) { display: flex; flex-direction: column; }
-.task-log-panel { flex:1; display: flex; flex-direction: column; overflow: hidden; }
+.task-log-panel { display: flex; flex-direction: column; overflow: hidden; }
 .course-progress { flex-shrink: 0; }
 .log-container { flex: 1; min-height: 0; overflow: hidden; font-family: monospace; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
