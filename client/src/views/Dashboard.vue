@@ -2,11 +2,11 @@
   <div class="app">
     <header class="topbar">
       <span class="brand">CX_Kitty</span>
+      <div class="system-load">系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag></div>
       <div class="user-info">
         <div v-if="account.name" class="user-name">{{ account.name }}</div>
         <div class="user-phone">{{ account.phone }}</div>
       </div>
-      <div class="system-load">系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag></div>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
 
@@ -38,8 +38,8 @@
             </div>
 
             <div style="display:flex;gap:8px;margin-bottom:12px">
-              <el-button size="small" @click="configVisible = true">配置</el-button>
-              <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="flex:1" @click="start">
+              <el-button style="flex:1" @click="configVisible = true">配置</el-button>
+              <el-button type="primary" style="flex:1" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" @click="start">
                 {{ starting ? '启动中…' : startBtnText }}
               </el-button>
             </div>
@@ -553,7 +553,7 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .brand { font-weight: 700; font-size: 16px; color: #fff; }
-.user-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; }
+.user-info { display: flex; flex-direction: column; align-items: flex-start; margin-left: auto; }
 .user-name { color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.3; }
 .user-phone { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.3; }
 .system-load { color: rgba(255,255,255,0.6); font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
