@@ -118,12 +118,22 @@ export class Chaoxing {
       );
 
       if (resp.data && resp.data.status === true) {
-        await this.session.saveCookies();
-        const cookies = await this.session.jar.getCookies('https://chaoxing.com');
-        const uid = cookies.find(c => c.key === '_uid')?.value || '';
-        this._uid = uid;
-        logger.info(`登录成功 uid=${uid}`);
-        return { status: true, msg: '登录成功', uid };
+        // 有 session 就持久化 cookie，没有就是独立 session（多账号模式）
+        if (this.session) {
+          await this.session.saveCookies();
+          const cookies = await this.session.jar.getCookies('https://chaoxing.com');
+          const uid = cookies.find(c => c.key === '_uid')?.value || '';
+          this._uid = uid;
+        } else {
+          // 从独立 session 的 jar 中获取 uid
+          try {
+            const cookies = await this.axios.defaults.jar.getCookies('https://chaoxing.com');
+            const uid = cookies.find(c => c.key === '_uid')?.value || '';
+            this._uid = uid;
+          } catch {}
+        }
+        logger.info(`登录成功 uid=${this._uid}`);
+        return { status: true, msg: '登录成功', uid: this._uid };
       } else {
         const msg = (resp.data && (resp.data.msg2 || resp.data.message)) || '未知错误';
         logger.error(`登录失败: ${msg}`);
@@ -140,6 +150,8 @@ export class Chaoxing {
    * @returns {Promise<boolean>}
    */
   async _validateCookieSession() {
+    // 独立 session 不需要验证 cookie
+    if (!this.session) return false;
     const cookies = await this.session.jar.getCookies('https://chaoxing.com');
     const uidCookie = cookies.find(c => c.key === '_uid');
     if (!uidCookie) return false;
@@ -172,7 +184,9 @@ export class Chaoxing {
   /** 从 cookie 获取 uid */
   async getUid() {
     if (this._uid) return this._uid;
-    const cookies = await this.session.jar.getCookies('https://chaoxing.com');
+    const jar = this.session ? this.session.jar : this.axios?.defaults?.jar;
+    if (!jar) return '';
+    const cookies = await jar.getCookies('https://chaoxing.com');
     const uidCookie = cookies.find(c => c.key === '_uid' || c.key === 'UID');
     this._uid = uidCookie ? uidCookie.value : '';
     return this._uid;
