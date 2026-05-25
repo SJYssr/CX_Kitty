@@ -765,44 +765,54 @@ export class Chaoxing {
       // 设置 answerwqbid（题目ID列表）
       formData.answerwqbid = questions.map(q => q.id).join(',') + ',';
 
+      // 先查所有题目的答案（查完才知道覆盖率）
+      const answers = [];
       for (const q of questions) {
-        // 设置题型字段
         formData[q.answerTypeField] = q.typeCodeRaw;
-
         try {
           const answer = await this.tiku.query({
-            title: q.title,
-            options: q.options,
-            type: q.type
+            title: q.title, options: q.options, type: q.type
           });
-
           if (answer) {
             foundQuestions++;
-            if (q.type === 'judgement') {
-              const jr = this.tiku.judgementSelect?.(answer.answer);
-              formData[q.answerField] = jr !== null ? (jr ? 'true' : 'false') : this._randomAnswer(q);
-            } else if (q.type === 'completion' || q.type === 'shortanswer') {
-              formData[q.answerField] = answer.answer;
-            } else {
-              formData[q.answerField] = this._mapAnswerToIndex(answer.answer, q);
-            }
+            answers.push({ q, answer: answer.answer, found: true });
           } else {
-            formData[q.answerField] = this._randomAnswer(q);
+            answers.push({ q, answer: null, found: false });
           }
         } catch (_) {
-          formData[q.answerField] = this._randomAnswer(q);
+          answers.push({ q, answer: null, found: false });
         }
       }
 
       const coverage = totalQuestions > 0 ? foundQuestions / totalQuestions : 0;
       logger.info(`答题覆盖率: ${(coverage * 100).toFixed(0)}% (${foundQuestions}/${totalQuestions})`);
 
-      // 4. 判断是否直接提交（参照 Python 源码）
+      // 4. 判断是否提交（参照 Python 源码）
       const submit = this.tiku.SUBMIT;
       const coverRate = this.tiku.COVER_RATE;
-      // 如果之前已回滚过，强制提交；否则按覆盖率和提交模式判断
       const shouldSubmit = this.rollbackTimes >= 1 || (submit && coverage >= coverRate);
       const pyFlag = shouldSubmit ? '' : '1';
+
+      // 5. 按 Python 源码的方式填充答案
+      for (const { q, answer: ans, found } of answers) {
+        if (pyFlag === '1' && !found) {
+          // 保存模式 + 未搜到答案 → 留空
+          formData[q.answerField] = '';
+        } else if (ans) {
+          // 有答案 → 映射
+          if (q.type === 'judgement') {
+            const jr = this.tiku.judgementSelect?.(ans);
+            formData[q.answerField] = jr !== null ? (jr ? 'true' : 'false') : this._randomAnswer(q);
+          } else if (q.type === 'completion' || q.type === 'shortanswer') {
+            formData[q.answerField] = ans;
+          } else {
+            formData[q.answerField] = this._mapAnswerToIndex(ans, q);
+          }
+        } else {
+          // 没答案 → 随机选
+          formData[q.answerField] = this._randomAnswer(q);
+        }
+      }
 
       // 5. 提交
       formData.pyFlag = pyFlag;
