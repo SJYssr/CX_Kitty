@@ -215,8 +215,8 @@ function getTaskIndex(taskId) {
 }
 
 function onConfigDone(configData) {
-  Object.assign(account.value, configData)
-  localStorage.setItem('cx_account', JSON.stringify(account.value))
+  Object.assign(props.account, configData)
+  localStorage.setItem('cx_account', JSON.stringify(props.account))
   configVisible.value = false
 }
 
