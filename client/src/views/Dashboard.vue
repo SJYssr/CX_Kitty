@@ -498,11 +498,6 @@ onMounted(() => {
   loadCourses()
   loadTasks()
   fetchSystemLoad()
-  // 首次登录且无 DeepSeek Key 时自动弹出配置
-  if (!localStorage.getItem('cx_config_shown') && !props.account?.deepseekApiKey) {
-    configVisible.value = true
-    localStorage.setItem('cx_config_shown', '1')
-  }
   loadTimer = setInterval(fetchSystemLoad, 1000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
   axios.get('/api/study/tasks', {
