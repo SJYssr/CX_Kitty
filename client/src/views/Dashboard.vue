@@ -25,7 +25,7 @@
 
         <div class="col">
           <div class="panel" style="text-align:center;padding:32px 20px">
-            <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px">
+            <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:8px">
               系统负载: <span :class="systemLoadClass">{{ runningTaskCount }}/{{ maxTaskCount }}</span>
             </div>
 
@@ -106,7 +106,7 @@
           <el-table-column label="操作" width="100" align="center">
             <template #default="{row}">
               <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
-              <el-button v-if="row.status==='terminated'" size="small" type="primary" plain @click="rerunTask(row)">运行</el-button>
+              <el-button v-if="row.status==='terminated'" size="small" type="success" plain @click="rerunTask(row)">运行</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -602,7 +602,7 @@ onUnmounted(() => {
 :deep(.el-pagination) { --el-pagination-text-color: rgba(255,255,255,0.7); }
 
 /* 按钮毛玻璃 */
-.link-btn { color: rgba(100,181,246,0.9) !important; }
+.link-btn { color: rgba(100,181,246,0.9) !important; font-size: 13px; }
 .link-btn:hover { color: rgba(100,181,246,1) !important; }
 :deep(.el-button--default) { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff; }
 :deep(.el-button--default:hover) { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
