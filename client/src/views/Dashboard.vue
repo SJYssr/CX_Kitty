@@ -100,7 +100,7 @@
           <el-table-column prop="finished_at" label="结束" min-width="140" />
           <el-table-column label="课程" width="70" align="center">
             <template #default="{row}">
-              <el-button size="small" type="primary" plain @click="showTaskDetail(row)">查看</el-button>
+              <el-button size="small" plain @click="showTaskDetail(row)">查看</el-button>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" align="center">
