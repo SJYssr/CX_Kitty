@@ -4,6 +4,7 @@
  */
 
 import { Chaoxing } from '../../src/core/chaoxing.js';
+import { RateLimiter } from '../../src/core/ratelimiter.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
 import bus from './log-bus.js';
@@ -24,6 +25,9 @@ import { CookieJar } from 'tough-cookie';
  * @param {number} params.taskId
  * @param {Object} params.pool — mysql2/promise pool
  */
+// 全局节流器 — 所有任务共用，控制对超星的整体请求频率
+const GLOBAL_THROTTLE = new RateLimiter(800);
+
 export async function runStudy(params) {
   const { phone, password, courseIds, speed, jobs, deepseekApiKey, autoSubmit, taskId, pool } = params;
 
@@ -109,7 +113,12 @@ export async function runStudy(params) {
     // 每个任务创建独立的 session，避免串号
     const jar = new CookieJar();
     const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-    const chaoxing = new Chaoxing({ phone, password }, tiku, { speed: speed || 1, jobs: jobs || 3, _standaloneSession: standaloneSession });
+    const chaoxing = new Chaoxing({ phone, password }, tiku, {
+      speed: speed || 1,
+      jobs: jobs || 3,
+      _standaloneSession: standaloneSession,
+      _globalThrottle: GLOBAL_THROTTLE
+    });
     chaoxing._taskId = taskId;
     chaoxing._onProgress = writeProgress;
 

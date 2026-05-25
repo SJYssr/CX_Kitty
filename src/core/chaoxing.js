@@ -80,6 +80,15 @@ export class Chaoxing {
 
     this.rateLimiter = new RateLimiter(1200);
     if (options.fastMode) this.rateLimiter.setFastMode(true);
+    // 全局节流：所有实例共用，控制整体请求频率 < 1.5 req/s
+    if (options._globalThrottle) {
+      this._globalThrottle = options._globalThrottle;
+      const origAcquire = this.rateLimiter.acquire.bind(this.rateLimiter);
+      this.rateLimiter.acquire = async (opts) => {
+        await origAcquire(opts);
+        if (this._globalThrottle) await this._globalThrottle.acquire();
+      };
+    }
 
     this._uid = null;
     this._fid = DEFAULT_FID;
