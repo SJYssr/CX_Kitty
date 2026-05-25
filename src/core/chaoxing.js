@@ -254,7 +254,7 @@ export class Chaoxing {
 
     let info = { phone, uid, fid, name: '', studentId: '', school: '', major: '', className: '', gender: '', email: '' };
 
-    // 从 interaction 页面获取姓名
+    // 从 interaction 页面获取姓名和学校
     try {
       const resp = await this.axios.get('https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction', {
         headers: cfg.headers, timeout: 8000
@@ -263,9 +263,17 @@ export class Chaoxing {
       const nm = html.match(/realname["']?\s*[:=]\s*["']([^"']+)["']/);
       if (nm) info.name = nm[1];
       if (!info.name) {
-        // 尝试从页面文本中找姓名
         const el = html.match(/<a[^>]*class=["']user-info["'][^>]*>([^<]+)<\/a>/);
         if (el) info.name = el[1].trim();
+      }
+      // 从 interaction 页面获取学校名
+      if (!info.school) {
+        const sn = html.match(/school["']?\s*[:=]\s*["']([^"']+)["']/);
+        if (sn) info.school = sn[1];
+      }
+      if (!info.school) {
+        const sn2 = html.match(/<p[^>]*class=["']school-name["'][^>]*>([^<]+)<\/p>/);
+        if (sn2) info.school = sn2[1].trim();
       }
     } catch {}
 
@@ -286,15 +294,33 @@ export class Chaoxing {
         const m = html.match(p);
         if (m) { info.name = m[1].trim(); break; }
       }
-      // 提取学号、班级等信息
-      const sid = html.match(/学号[：:]*\s*([0-9]+)/);
-      if (sid) info.studentId = sid[1];
-      const sc = html.match(/学校[：:]*\s*([^<]+)/);
-      if (sc) info.school = sc[1].trim();
-      const cl = html.match(/班级[：:]*\s*([^<]+)/);
-      if (cl) info.className = cl[1].trim();
-      const mj = html.match(/专业[：:]*\s*([^<]+)/);
-      if (mj) info.major = mj[1].trim();
+      if (!info.school) {
+        const sid = html.match(/学号[：:]*\s*([0-9]+)/);
+        if (sid) info.studentId = sid[1];
+        const sc = html.match(/学校[：:]*\s*([^<]+)/);
+        if (sc) info.school = sc[1].trim();
+        const cl = html.match(/班级[：:]*\s*([^<]+)/);
+        if (cl) info.className = cl[1].trim();
+        const mj = html.match(/专业[：:]*\s*([^<]+)/);
+        if (mj) info.major = mj[1].trim();
+      }
+    } catch {}
+
+    // 从认证的 API 获取学校名称
+    try {
+      const resp = await this.axios.get('https://passport2.chaoxing.com/org/getOrgInfo?fid=' + info.fid, {
+        headers: cfg.headers, timeout: 8000
+      });
+      const d = resp.data;
+      if (d && d.result === true && d.name) info.school = d.name;
+    } catch {}
+    try {
+      const resp = await this.axios.get('https://mooc1.chaoxing.com/visit/orginfo?fid=' + info.fid, {
+        headers: cfg.headers, timeout: 8000
+      });
+      const html = typeof resp.data === 'string' ? resp.data : '';
+      const sn = html.match(/orgName["']?\s*[:=]\s*["']([^"']+)["']/);
+      if (sn) info.school = sn[1];
     } catch {}
 
     return info;
