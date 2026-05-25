@@ -88,7 +88,7 @@ export class TikuDeepSeek extends Tiku {
           { role: 'user', content: this._buildPrompt(qInfo) }
         ],
         temperature: 0.05,
-        max_tokens: 128,
+        max_tokens: 1024,
         stream: false
       };
 
