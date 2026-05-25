@@ -60,7 +60,7 @@
               <div v-else class="course-item">
                 <div class="course-name">{{ (currentTask.course_ids || [])[0] || '加载中...' }}</div>
                 <div class="course-bar">
-                  <el-progress :percentage="0" :stroke-width="10" :show-text="false" />
+                  <el-progress :percentage="100" :stroke-width="10" :show-text="false" :status="'warning'" :indeterminate="true" :duration="3" />
                 </div>
                 <div class="course-detail">等待数据...</div>
               </div>
