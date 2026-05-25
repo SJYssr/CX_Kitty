@@ -4,6 +4,10 @@
       系统负载: <span :class="taskCount >= 100 ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
     </div>
 
+    <div class="notice-marquee">
+      <span>📢 本项目为公益项目，服务器最大承受为50个任务，答题功能未测试，不知道效果如何，望周知。</span>
+    </div>
+
     <div class="card">
       
       <h1>CX_Kitty</h1>
@@ -132,5 +136,23 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .copyright {
   position: fixed; bottom: 12px; left: 0; right: 0;
   text-align: center; font-size: 11px; color: rgba(255,255,255,0.4);
+}
+
+.notice-marquee {
+  margin: 8px auto;
+  max-width: 320px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #e6a23c;
+  text-align: center;
+}
+.notice-marquee span {
+  display: inline-block;
+  animation: marquee 16s linear infinite;
+}
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
 </style>
