@@ -117,12 +117,9 @@ export class JobProcessor {
 
     logger.info(`${label} (${jobs.length} 个任务)`);
 
-    // 处理每个 job，完成后实时上报进度
-    let jobDone = 0;
+    // 处理每个 job
     for (const job of jobs) {
       await this._processJob(job, jobInfo);
-      jobDone++;
-      this._sendProgress();
     }
 
     return ChapterResult.SUCCESS;
@@ -196,17 +193,4 @@ export class JobProcessor {
     }
   }
 
-  _sendProgress() {
-    if (!this.chaoxing._taskId) return;
-    if (typeof this.chaoxing._onProgress !== 'function' && typeof process.send !== 'function') return;
-    // Just send a heartbeat to update timestamp, don't overwrite completed count
-    const msg = {
-      type: 'heartbeat',
-      taskId: this.chaoxing._taskId,
-      courseTitle: this.course.title,
-      courseId: this.course.courseId
-    };
-    if (typeof process.send === 'function') process.send(msg);
-    if (typeof this.chaoxing._onProgress === 'function') this.chaoxing._onProgress(msg);
-  }
 }

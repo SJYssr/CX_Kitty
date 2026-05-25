@@ -63,7 +63,8 @@ export async function runStudy(params) {
     chaoxing._taskId = taskId;
     chaoxing._onProgress = writeProgress;
 
-    const loginResult = await chaoxing.login(true);
+    // 强制密码登录，避免 SessionManager 单例串号
+    const loginResult = await chaoxing.login(false);
     if (!loginResult.status) {
       await updateStatus('failed', JSON.stringify({ error: '登录失败: ' + loginResult.msg }));
       return;

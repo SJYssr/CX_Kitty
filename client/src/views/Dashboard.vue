@@ -283,7 +283,7 @@ onMounted(() => {
   loadCourses()
   loadTasks()
   fetchSystemLoad()
-  loadTimer = setInterval(fetchSystemLoad, 5000)
+  loadTimer = setInterval(fetchSystemLoad, 1000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
   axios.get('/api/study/tasks', {
     params: { phone: props.account.phone }

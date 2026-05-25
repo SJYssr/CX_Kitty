@@ -74,7 +74,7 @@ async function handleLogin() {
   finally { loading.value = false }
 }
 
-onMounted(() => { fetchTaskCount(); countTimer = setInterval(fetchTaskCount, 5000) })
+onMounted(() => { fetchTaskCount(); countTimer = setInterval(fetchTaskCount, 1000) })
 onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 </script>
 
