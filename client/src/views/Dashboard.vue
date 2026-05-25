@@ -47,13 +47,22 @@
             </div>
 
             <!-- 课程进度 -->
-            <div v-if="courseProgress.length" class="course-progress">
-              <div v-for="cp in courseProgress" :key="cp.courseId" class="course-item">
-                <div class="course-name">{{ cp.title }}</div>
-                <div class="course-bar">
-                  <el-progress :percentage="cp.percent" :status="cp.finished ? 'success' : ''" :stroke-width="10" :show-text="false" />
+            <div v-if="currentTask" class="course-progress">
+              <div v-if="courseProgress.length">
+                <div v-for="cp in courseProgress" :key="cp.courseId" class="course-item">
+                  <div class="course-name">{{ cp.title }}</div>
+                  <div class="course-bar">
+                    <el-progress :percentage="cp.percent" :status="cp.finished ? 'success' : ''" :stroke-width="10" :show-text="false" />
+                  </div>
+                  <div class="course-detail">{{ cp.completed }}/{{ cp.total }} 章节</div>
                 </div>
-                <div class="course-detail">{{ cp.completed }}/{{ cp.total }} 章节</div>
+              </div>
+              <div v-else class="course-item">
+                <div class="course-name">{{ (currentTask.course_ids || [])[0] || '加载中...' }}</div>
+                <div class="course-bar">
+                  <el-progress :percentage="0" :stroke-width="10" :show-text="false" />
+                </div>
+                <div class="course-detail">等待数据...</div>
               </div>
             </div>
 
