@@ -69,6 +69,7 @@ async function handleLogin() {
     const { data } = await axios.post('/api/courses', form.value)
     if (!data.success) { error.value = data.message || '超星登录失败'; return }
     await axios.post('/api/account/save', form.value).catch(() => {})
+    axios.post('/api/account/info', form.value).catch(() => {})
     emit('login', { phone: form.value.phone, password: form.value.password })
   } catch { error.value = '无法连接服务器' }
   finally { loading.value = false }

@@ -10,6 +10,16 @@ const router = Router();
 
 // 获取课程列表 — fork 子进程隔离 SessionManager 单例
 // 系统状态
+router.get('/system/status', async (req, res) => {
+  try {
+    const [taskRows] = await pool.query("SELECT COUNT(*) AS count FROM study_tasks WHERE status = 'running'");
+    const [userRows] = await pool.query('SELECT COUNT(*) AS count FROM accounts');
+    res.json({ success: true, runningTasks: taskRows[0].count, maxTasks: 100, totalUsers: userRows[0].count });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
 router.get('/system/task-count', async (req, res) => {
   try {
     const [rows] = await pool.query(

@@ -335,7 +335,7 @@ onUnmounted(() => {
 .load-ok { color: #67c23a; font-weight: 600; }
 .load-full { color: #f56c6c; font-weight: 600; }
 .time { color: #909399; font-size: 12px; margin-top: 8px; text-align: center; }
-.course-progress { margin: 8px 0; }
+.course-progress { margin: 8px 0; max-height: 300px; overflow-y: auto; }
 .course-item { margin-bottom: 10px; }
 .course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
 .course-detail { font-size: 11px; color: #909399; margin-top: 2px; text-align: right; }

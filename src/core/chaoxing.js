@@ -230,6 +230,58 @@ export class Chaoxing {
   }
 
   /**
+   * 获取用户个人信息（姓名、学号、学校等）
+   * @returns {Promise<Object>}
+   */
+  async getUserInfo() {
+    const phone = this.account?.phone || '';
+    const uid = await this.getUid();
+    const fid = this.getFid();
+
+    let info = { phone, uid, fid, name: '', studentId: '', school: '', major: '', className: '', gender: '', email: '' };
+
+    try {
+      const resp = await this.axios.get('https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction', {
+        headers: cfg.headers, timeout: 8000
+      });
+      const html = typeof resp.data === 'string' ? resp.data : '';
+      const nm = html.match(/realname["']?\s*[:=]\s*["']([^"']+)["']/);
+      if (nm) info.name = nm[1];
+      if (!info.name) {
+        const nm2 = html.match(/<span[^>]*class=["']user-name["'][^>]*>([^<]+)<\/span>/);
+        if (nm2) info.name = nm2[1].trim();
+      }
+    } catch {}
+
+    try {
+      const resp = await this.axios.get('https://passport2.chaoxing.com/user/getUserInfo', {
+        headers: cfg.headers, timeout: 8000
+      });
+      const d = resp.data;
+      if (d && d.result === true) {
+        info.name = d.realname || info.name;
+        info.studentId = d.studentid || d.schoolNumber || '';
+        info.school = d.schoolName || d.school || '';
+        info.major = d.major || '';
+        info.className = d.className || d.classname || '';
+        info.gender = d.gender || d.sex || '';
+        info.email = d.email || '';
+      }
+    } catch {}
+
+    try {
+      const resp = await this.axios.get('https://i.chaoxing.com/', {
+        headers: cfg.headers, timeout: 8000
+      });
+      const html = typeof resp.data === 'string' ? resp.data : '';
+      const nm = html.match(/realname["']?\s*[:=]\s*["']([^"']+)["']/);
+      if (nm && !info.name) info.name = nm[1];
+    } catch {}
+
+    return info;
+  }
+
+  /**
    * 获取课程章节列表
    * @param {string} courseId
    * @param {string} clazzId
