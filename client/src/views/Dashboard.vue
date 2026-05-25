@@ -26,7 +26,7 @@
         <div class="col">
           <div class="panel" style="text-align:center;padding:32px 20px">
             <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:8px">
-              系统负载: <span :class="systemLoadClass">{{ runningTaskCount }}/{{ maxTaskCount }}</span>
+              系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag>
             </div>
 
             <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
@@ -100,7 +100,7 @@
           <el-table-column prop="finished_at" label="结束" min-width="140" />
           <el-table-column label="课程" width="70" align="center">
             <template #default="{row}">
-              <el-button size="small" link @click="showTaskDetail(row)" class="link-btn">查看</el-button>
+              <el-button size="small" type="primary" plain @click="showTaskDetail(row)">查看</el-button>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" align="center">
@@ -248,7 +248,7 @@ async function fetchSystemLoad() {
 }
 
 const systemLoadClass = computed(() =>
-  runningTaskCount.value >= maxTaskCount.value ? 'load-full' : 'load-ok'
+  runningTaskCount.value >= maxTaskCount.value ? 'danger' : 'success'
 )
 
 const startBtnText = computed(() => {
@@ -576,12 +576,12 @@ onUnmounted(() => {
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }
-.load-ok { color: #67c23a; font-weight: 600; }
+
 .detail-course-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .detail-course-item:last-child { border-bottom: none; }
 .detail-course-title { font-size: 14px; font-weight: 500; color: #fff; }
 .detail-course-meta { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
-.load-full { color: #f56c6c; font-weight: 600; }
+
 .time { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 8px; text-align: center; }
 .course-progress { flex-shrink: 0; margin: 8px 0; }
 .course-item { margin-bottom: 10px; }
@@ -602,8 +602,7 @@ onUnmounted(() => {
 :deep(.el-pagination) { --el-pagination-text-color: rgba(255,255,255,0.7); }
 
 /* 按钮毛玻璃 */
-.link-btn { color: rgba(100,181,246,0.9) !important; font-size: 13px; }
-.link-btn:hover { color: rgba(100,181,246,1) !important; }
+
 :deep(.el-button--default) { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff; }
 :deep(.el-button--default:hover) { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
 :deep(.el-button--primary) { background: rgba(64,158,255,0.6); border-color: transparent; }
