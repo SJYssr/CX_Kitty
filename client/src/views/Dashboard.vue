@@ -26,7 +26,7 @@
         <div class="col">
           <div class="panel" style="text-align:center;padding:32px 20px">
             <div style="font-size:13px;color:#909399;margin-bottom:16px">
-              倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 3 }}
+              倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 1 }}
               <el-button link size="small" @click="$emit('config')" style="margin-left:4px">修改</el-button>
             </div>
             <el-button type="primary" size="large" :loading="starting" style="width:100%" @click="start">
@@ -125,7 +125,7 @@ async function start() {
       password: props.account.password,
       courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
       speed: props.account.defaultSpeed || 1,
-      jobs: props.account.defaultJobs || 3,
+      jobs: props.account.defaultJobs || 1,
       deepseekApiKey: props.account.deepseekApiKey || '',
       deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
       enableAnswering: props.account.enableAnswering !== false,

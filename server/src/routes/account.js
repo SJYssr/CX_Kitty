@@ -33,7 +33,7 @@ router.post('/account/save', async (req, res) => {
       [phone, hashed, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
        enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,
        autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0,
-       defaultSpeed || 1.0, defaultJobs || 3]
+       defaultSpeed || 1.0, defaultJobs || 1]
     );
     res.json({ success: true, account: { id: r.insertId, phone } });
   } catch (err) {
@@ -61,7 +61,7 @@ router.get('/account/config', async (req, res) => {
         enable_answering: !!rows[0].enable_answering,
         auto_submit: !!rows[0].auto_submit,
         default_speed: rows[0].default_speed || 1.0,
-        default_jobs: rows[0].default_jobs || 3
+        default_jobs: rows[0].default_jobs || 1
       }
     });
   } catch (err) {

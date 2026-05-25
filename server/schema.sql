@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   deepseek_model VARCHAR(50) DEFAULT 'deepseek-v4-flash',
   enable_answering TINYINT(1) DEFAULT 1,
   auto_submit TINYINT(1) DEFAULT 0,
+  default_speed DECIMAL(3,1) DEFAULT 1.0,
+  default_jobs INT DEFAULT 1,
   cookie_data TEXT,
   status VARCHAR(20) DEFAULT 'active',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
