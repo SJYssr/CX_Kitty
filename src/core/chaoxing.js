@@ -599,6 +599,12 @@ export class Chaoxing {
       return StudyResult.SUCCESS;
     }
 
+    // 下载视频不是标准 ananas，无法通过心跳完成，直接跳过
+    if (!dtoken) {
+      logger.info(`${jobName} 下载视频无法心跳，直接跳过`);
+      return StudyResult.SUCCESS;
+    }
+
     // 3. 从已有播放进度开始
     const startPlay = Math.floor((job.playTime || 0) / 1000);
     let playTime = startPlay;
