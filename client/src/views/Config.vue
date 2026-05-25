@@ -67,7 +67,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({ account: Object, dialogMode: Boolean })
-const emit = defineEmits(['enter'])
+const emit = defineEmits(['enter', 'close'])
 
 const saving = ref(false)
 const checking = ref(false)
@@ -108,6 +108,7 @@ async function save() {
       ...form.value
     })
     emit('enter', form.value)
+    emit('close')
   } catch (e) {
     error.value = '保存失败'
   } finally { saving.value = false }

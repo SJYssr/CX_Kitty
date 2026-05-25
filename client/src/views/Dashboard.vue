@@ -106,7 +106,7 @@
     <!-- 任务详情弹窗 -->
     <!-- 配置弹窗 -->
     <el-dialog v-model="configVisible" title="配置" width="90%" modal-class="config-dialog" style="max-width:420px">
-      <Config :account="account" dialog-mode @enter="onConfigDone" />
+      <Config :account="account" dialog-mode @enter="onConfigDone" @close="configVisible = false" />
     </el-dialog>
 
     <el-dialog v-model="detailVisible" title="任务课程详情" width="90%" :close-on-click-modal="true" style="max-width:500px">
