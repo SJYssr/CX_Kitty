@@ -550,6 +550,7 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
+.brand { font-weight: 700; font-size: 16px; color: #fff; }
 .user-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; }
 .user-name { color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.3; }
 .user-phone { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.3; }

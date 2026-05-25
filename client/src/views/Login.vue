@@ -131,7 +131,7 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
   border: 1px solid rgba(255,255,255,0.2);
 }
 .logo { font-size: 56px; margin-bottom: 8px; }
-h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
+h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
 .desc { color: #909399; font-size: 14px; margin-bottom: 32px; }
 .desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
 .copyright {
