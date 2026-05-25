@@ -52,12 +52,15 @@
                 <div class="course-name">{{ currentCourse?.title || '课程' }}</div>
                 <div class="course-bar">
                   <el-progress
-                    :percentage="currentCourse?.percent || 0"
+                    v-if="currentCourse"
+                    :percentage="currentCourse.percent"
+                    :status="currentCourse.finished ? 'success' : ''"
                     :stroke-width="10"
                     :show-text="false"
                   />
+                  <div v-else class="waiting-bar"></div>
                 </div>
-                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待数据...' }}</div>
+                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '连接中...' }}</div>
               </div>
             </div>
 
@@ -507,6 +510,7 @@ onUnmounted(() => {
 .course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
 .course-detail { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; text-align: right; }
 .course-bar { margin-bottom: 2px; }
+.waiting-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); }
 
 /* 表格毛玻璃 */
 :deep(.el-table) { background: transparent; color: #fff; }
