@@ -105,7 +105,7 @@
 
     <!-- 任务详情弹窗 -->
     <!-- 配置弹窗 -->
-    <el-dialog v-model="configVisible" title="配置" width="420px" :close-on-click-modal="false" destroy-on-close>
+    <el-dialog v-model="configVisible" title="配置" width="420px" modal-class="config-dialog">
       <Config :account="account" dialog-mode @enter="onConfigDone" />
     </el-dialog>
 
