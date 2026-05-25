@@ -626,19 +626,27 @@ export class Chaoxing {
       await sleep(1000);
     }
 
-    // 最后再试一次完整上报
-    const finalResult = await this.videoProgressLog(
-      course, job, jobInfo, currentDtoken, duration, duration, type, 3
-    );
+    // 尝试多次上报确保完成
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await sleep(3000);
+
+      const finalResult = await this.videoProgressLog(
+        course, job, jobInfo, currentDtoken, duration, duration, type, attempt === 0 ? 3 : 4
+      );
+
+      if (finalResult.passed) {
+        if (process.stdout.clearLine) {
+          process.stdout.clearLine(0);
+          process.stdout.cursorTo(0);
+        }
+        logger.info(`${jobName} 完成`);
+        return StudyResult.SUCCESS;
+      }
+    }
 
     if (process.stdout.clearLine) {
       process.stdout.clearLine(0);
       process.stdout.cursorTo(0);
-    }
-
-    if (finalResult.passed) {
-      logger.info(`${jobName} 完成`);
-      return StudyResult.SUCCESS;
     }
 
     return StudyResult.ERROR;

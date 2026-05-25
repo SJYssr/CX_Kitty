@@ -36,7 +36,7 @@
             </el-button>
           </div>
 
-          <div class="panel" style="margin-top:12px">
+          <div class="panel task-log-panel" style="margin-top:12px">
             <div class="panel-header">
               任务日志
               <span v-if="currentTask" style="font-weight:normal;font-size:12px">
@@ -450,7 +450,9 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
-.log-container { max-height: 300px; overflow-y: auto; margin-top: 8px; font-family: monospace; font-size: 12px; line-height: 1.6; }
+.task-log-panel { max-height: 500px; display: flex; flex-direction: column; overflow: hidden; }
+.course-progress { flex-shrink: 0; margin: 8px 0; }
+.log-container { flex: 1; min-height: 0; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }
