@@ -138,13 +138,14 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
 .copyright {
-  position: fixed; bottom: 26px; left: 0; right: 0;
-  text-align: center; font-size: 11px; color: rgba(255,255,255,0.4);
+  position: fixed; bottom: 30px; left: 0; right: 0;
+  text-align: center; font-size: 12px; color: rgba(255,255,255,0.4);
 }
 
 .disclaimer {
   position: fixed; bottom: 10px; left: 0; right: 0;
-  text-align: center; font-size: 10px; color: rgba(255,255,255,0.25);
+  text-align: center; font-size: 11px; color: rgba(255,255,255,0.25);
+  line-height: 1.6;
 }
 
 .notice-marquee {
