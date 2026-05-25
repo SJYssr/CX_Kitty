@@ -13,7 +13,7 @@
           <div class="panel">
             <div class="panel-header">
               <span>课程列表</span>
-              <el-button size="small" @click="loadCourses" :loading="loadingCourses">刷新</el-button>
+              <el-button size="small" @click="loadCourses(true)" :loading="loadingCourses">刷新</el-button>
             </div>
             <el-table :data="courses" stripe size="small" max-height="400" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
@@ -261,13 +261,31 @@ const courseProgress = computed(() => {
   return []
 })
 
-async function loadCourses() {
+function loadCoursesFromCache() {
+  const key = 'cx_courses_' + props.account.phone
+  const cached = localStorage.getItem(key)
+  if (cached) {
+    try { courses.value = JSON.parse(cached); return true } catch {}
+  }
+  return false
+}
+
+function saveCoursesToCache() {
+  const key = 'cx_courses_' + props.account.phone
+  localStorage.setItem(key, JSON.stringify(courses.value))
+}
+
+async function loadCourses(force = false) {
+  if (!force && loadCoursesFromCache()) return
   loadingCourses.value = true
   try {
     const { data } = await axios.post('/api/courses', {
       phone: props.account.phone, password: props.account.password
     })
-    if (data.success) courses.value = data.courses
+    if (data.success) {
+      courses.value = data.courses
+      saveCoursesToCache()
+    }
   } catch {} finally { loadingCourses.value = false }
 }
 
