@@ -25,12 +25,15 @@
 
         <div class="col">
           <div class="panel" style="text-align:center;padding:32px 20px">
+            <div style="font-size:12px;color:#909399;margin-bottom:8px">
+              系统负载: <span :class="systemLoadClass">{{ runningTaskCount }}/{{ maxTaskCount }}</span>
+            </div>
             <div style="font-size:13px;color:#909399;margin-bottom:16px">
               倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 1 }}
               <el-button link size="small" @click="$emit('config')" style="margin-left:4px">修改</el-button>
             </div>
-            <el-button type="primary" size="large" :loading="starting" style="width:100%" @click="start">
-              {{ starting ? '启动中…' : '🚀 开始刷课' }}
+            <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
+              {{ starting ? '启动中…' : startBtnText }}
             </el-button>
           </div>
 
@@ -74,8 +77,8 @@
           <el-table-column prop="id" label="#" width="50" />
           <el-table-column label="状态" width="80">
             <template #default="{row}">
-              <el-tag :type="{completed:'success',failed:'danger',running:'warning',pending:'info'}[row.status]||'info'" size="small">
-                {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待'}[row.status]||row.status }}
+              <el-tag :type="{completed:'success',failed:'danger',running:'warning',pending:'info',terminated:'info'}[row.status]||'info'" size="small">
+                {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[row.status]||row.status }}
               </el-tag>
             </template>
           </el-table-column>
@@ -109,7 +112,30 @@ const loadingCourses = ref(false)
 const loadingTasks = ref(false)
 const currentTask = ref(null)
 const tasks = ref([])
+const runningTaskCount = ref(0)
+const maxTaskCount = ref(100)
 let timer = null
+let loadTimer = null
+
+async function fetchSystemLoad() {
+  try {
+    const { data } = await axios.get('/api/system/task-count')
+    if (data.success) {
+      runningTaskCount.value = data.count
+      maxTaskCount.value = data.max || 100
+    }
+  } catch {}
+}
+
+const systemLoadClass = computed(() =>
+  runningTaskCount.value >= maxTaskCount.value ? 'load-full' : 'load-ok'
+)
+
+const startBtnText = computed(() => {
+  if (starting.value) return '启动中…'
+  if (runningTaskCount.value >= maxTaskCount.value) return '🚫 服务器已满'
+  return '🚀 开始刷课'
+})
 
 function onSelectionChange(selection) {
   selectedCourses.value = selection.map(c => c.courseId)
@@ -256,6 +282,8 @@ async function terminateTask(taskId) {
 onMounted(() => {
   loadCourses()
   loadTasks()
+  fetchSystemLoad()
+  loadTimer = setInterval(fetchSystemLoad, 5000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
   axios.get('/api/study/tasks', {
     params: { phone: props.account.phone }
@@ -278,7 +306,10 @@ onMounted(() => {
   }).catch(() => {})
 })
 
-onUnmounted(() => { if (timer) clearInterval(timer) })
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  if (loadTimer) clearInterval(loadTimer)
+})
 </script>
 
 <style scoped>
@@ -301,6 +332,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
   display: flex; align-items: center; justify-content: space-between;
   font-weight: 600; margin-bottom: 12px;
 }
+.load-ok { color: #67c23a; font-weight: 600; }
+.load-full { color: #f56c6c; font-weight: 600; }
 .time { color: #909399; font-size: 12px; margin-top: 8px; text-align: center; }
 .course-progress { margin: 8px 0; }
 .course-item { margin-bottom: 10px; }

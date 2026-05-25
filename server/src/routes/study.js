@@ -9,6 +9,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = Router();
 
 // 获取课程列表 — fork 子进程隔离 SessionManager 单例
+// 系统状态
+router.get('/system/task-count', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT COUNT(*) AS count FROM study_tasks WHERE status = 'running'"
+    );
+    res.json({ success: true, count: rows[0].count, max: 100 });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
 router.post('/courses', async (req, res) => {
   try {
     const { phone, password } = req.body;
