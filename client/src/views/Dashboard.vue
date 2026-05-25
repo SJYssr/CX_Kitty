@@ -6,6 +6,7 @@
         <div v-if="account.name" class="user-name">{{ account.name }}</div>
         <div class="user-phone">{{ account.phone }}</div>
       </div>
+      <div class="system-load">系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag></div>
       <el-button size="small" @click="configVisible = true">配置</el-button>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
@@ -27,17 +28,7 @@
         </div>
 
         <div class="col">
-          <div class="panel" style="text-align:center;padding:32px 20px">
-            <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:8px">
-              系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag>
-            </div>
-
-            <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
-              {{ starting ? '启动中…' : startBtnText }}
-            </el-button>
-          </div>
-
-          <div class="panel task-log-panel" style="margin-top:12px">
+          <div class="panel task-log-panel">
             <div class="panel-header">
               任务日志
               <span v-if="currentTask" style="font-weight:normal;font-size:12px">
@@ -46,6 +37,10 @@
                 <el-button v-if="currentTask.status==='running'" size="small" type="danger" plain style="margin-left:6px" @click="terminateTask(currentTask.id)">终止</el-button>
               </span>
             </div>
+
+            <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%;margin-bottom:12px" @click="start">
+              {{ starting ? '启动中…' : startBtnText }}
+            </el-button>
 
             <!-- 课程进度（任务存在就显示） -->
             <div v-if="currentTask" class="course-progress">
@@ -559,6 +554,7 @@ onUnmounted(() => {
 .user-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; }
 .user-name { color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.3; }
 .user-phone { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.3; }
+.system-load { color: rgba(255,255,255,0.6); font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 300px; }
