@@ -734,7 +734,13 @@ export class Chaoxing {
       let foundQuestions = 0;
       const totalQuestions = questions.length;
 
+      // 设置 answerwqbid（题目ID列表）
+      formData.answerwqbid = questions.map(q => q.id).join(',') + ',';
+
       for (const q of questions) {
+        // 设置题型字段
+        formData[q.answerTypeField] = q.typeCodeRaw;
+
         try {
           const answer = await this.tiku.query({
             title: q.title,
@@ -744,23 +750,15 @@ export class Chaoxing {
 
           if (answer) {
             foundQuestions++;
-            // 根据题型设置答案
             if (q.type === 'judgement') {
-              const judgementResult = this.tiku.judgementSelect
-                ? this.tiku.judgementSelect(answer.answer)
-                : null;
-              if (judgementResult !== null) {
-                formData[q.answerField] = judgementResult ? 'true' : 'false';
-              }
+              const jr = this.tiku.judgementSelect?.(answer.answer);
+              formData[q.answerField] = jr !== null ? (jr ? 'true' : 'false') : this._randomAnswer(q);
             } else if (q.type === 'completion' || q.type === 'shortanswer') {
               formData[q.answerField] = answer.answer;
             } else {
-              // single / multiple: 映射到选项索引
-              const answerStr = this._mapAnswerToIndex(answer.answer, q);
-              formData[q.answerField] = answerStr;
+              formData[q.answerField] = this._mapAnswerToIndex(answer.answer, q);
             }
           } else {
-            // 随机选择
             formData[q.answerField] = this._randomAnswer(q);
           }
         } catch (_) {
@@ -867,7 +865,10 @@ export class Chaoxing {
     const type = question.type;
     const optsLen = (question.options || []).length;
 
-    if (type === 'single' || type === 'judgement') {
+    if (type === 'judgement') {
+      return Math.random() > 0.5 ? 'true' : 'false';
+    }
+    if (type === 'single') {
       return optsLen > 0 ? String(randomInt(0, optsLen - 1)) : '0';
     }
     if (type === 'multiple') {

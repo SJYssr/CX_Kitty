@@ -65,17 +65,15 @@ export function parseQuestions(html) {
       options.push(optText);
     });
 
-    // 选项排序 (保持稳定)
-    // 确定答案字段名
-    let answerField = `answer${questionId}`;
-    if (type === 'multiple') answerField = `answer${questionId}`;
-
     questions.push({
       id: questionId,
       title,
       options,
       type,
-      answerField
+      typeCode,
+      typeCodeRaw,
+      answerField: `answer${questionId}`,
+      answerTypeField: `answertype${questionId}`
     });
   });
 
