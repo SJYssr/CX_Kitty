@@ -93,6 +93,7 @@ export class JobProcessor {
 
     if (point.hasFinished) {
       logger.info(`${label} 已完成，跳过`);
+      this._sendLog(`${label} 已完成，跳过`);
       return ChapterResult.SUCCESS;
     }
 
@@ -101,16 +102,19 @@ export class JobProcessor {
 
     if (notOpen) {
       logger.warn(`${label} 章节未开放，跳过`);
+      this._sendLog(`${label} 章节未开放，跳过`);
       return ChapterResult.NOT_OPEN;
     }
 
     if (!jobs.length) {
       logger.info(`${label} 空章节`);
+      this._sendLog(`${label} 空章节`);
       await this.chaoxing.studyEmptyPage(this.course, point);
       return ChapterResult.SUCCESS;
     }
 
     logger.info(`${label} (${jobs.length} 个任务)`);
+    this._sendLog(`${label} (${jobs.length} 个任务)`);
 
     // 处理每个 job，跟踪结果
     let allSuccess = true;
@@ -119,10 +123,20 @@ export class JobProcessor {
       if (result !== StudyResult.SUCCESS) {
         allSuccess = false;
         logger.warn(`${label} 任务未完成: ${job.name || job.jobid} (${result})`);
+        this._sendLog(`⚠️ ${label} 任务未完成: ${job.name || job.jobid}`);
+      } else {
+        this._sendLog(`✅ ${label} ${job.name || job.jobid} 完成`);
       }
     }
 
     return allSuccess ? ChapterResult.SUCCESS : ChapterResult.ERROR;
+  }
+
+  _sendLog(text) {
+    if (!this.chaoxing._taskId) return;
+    const msg = { type: 'log', taskId: this.chaoxing._taskId, text };
+    if (typeof process.send === 'function') process.send(msg);
+    if (typeof this.chaoxing._onProgress === 'function') this.chaoxing._onProgress(msg);
   }
 
   /**

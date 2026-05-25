@@ -43,22 +43,29 @@ export async function runStudy(params) {
   const writeProgress = async (msg) => {
     try {
       const [existing] = await pool.query('SELECT progress FROM study_tasks WHERE id = ?', [taskId]);
-      let progData = { courses: {}, timestamp: new Date().toISOString() };
+      let progData = { courses: {}, logs: [], timestamp: new Date().toISOString() };
       if (existing[0]?.progress) {
         try { progData = JSON.parse(existing[0].progress); } catch {}
       }
       if (!progData.courses) progData.courses = {};
-      // total > 0 时才是真正的章节进度更新，否则只刷新时间戳（心跳）
-      if (msg.total > 0) {
+      if (!progData.logs) progData.logs = [];
+
+      if (msg.type === 'log' && msg.text) {
+        // 日志消息：追加到日志数组，最多保留 200 条
+        progData.logs.push({ t: new Date().toLocaleTimeString(), text: msg.text });
+        if (progData.logs.length > 200) progData.logs = progData.logs.slice(-200);
+      } else if (msg.total > 0) {
+        // 章节进度更新
         progData.courses[msg.courseId] = {
           title: msg.courseTitle,
           total: msg.total,
           completed: msg.completed
         };
       }
+      // 其他类型（心跳等）只刷新时间戳
       progData.timestamp = new Date().toISOString();
       await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(progData), taskId]);
-    } catch (e) { /* ignore progress errors */ }
+    } catch (e) { /* ignore */ }
   };
 
   try {

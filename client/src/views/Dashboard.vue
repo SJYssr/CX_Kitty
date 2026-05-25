@@ -36,69 +36,37 @@
             </el-button>
           </div>
 
-          <div v-if="currentTask" class="panel" style="margin-top:12px">
+          <div class="panel" style="margin-top:12px">
             <div class="panel-header">
-              任务 #{{ getTaskIndex(currentTask.id) }}
-              <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
+              任务日志
+              <span v-if="currentTask" style="font-weight:normal;font-size:12px">
+                #{{ getTaskIndex(currentTask.id) }} ·
+                <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
+                <el-button v-if="currentTask.status==='running'" size="small" type="danger" plain style="margin-left:6px" @click="terminateTask(currentTask.id)">终止</el-button>
+              </span>
             </div>
 
-            <!-- Per-course progress -->
+            <!-- 课程进度 -->
             <div v-if="courseProgress.length" class="course-progress">
               <div v-for="cp in courseProgress" :key="cp.courseId" class="course-item">
                 <div class="course-name">{{ cp.title }}</div>
                 <div class="course-bar">
-                  <el-progress
-                    :percentage="cp.percent"
-                    :status="cp.finished ? 'success' : ''"
-                    :stroke-width="10"
-                    :show-text="false"
-                  />
+                  <el-progress :percentage="cp.percent" :status="cp.finished ? 'success' : ''" :stroke-width="10" :show-text="false" />
                 </div>
                 <div class="course-detail">{{ cp.completed }}/{{ cp.total }} 章节</div>
               </div>
             </div>
 
-            <!-- Fallback simple progress -->
-            <div v-else>
-              <el-progress :percentage="taskPct" :status="taskPctStatus" :stroke-width="12" :show-text="false" />
+            <!-- 实时日志 -->
+            <div ref="logContainer" class="log-container" v-if="taskLogs.length">
+              <div v-for="(log, i) in taskLogs" :key="i" class="log-line">
+                <span class="log-time">{{ log.t }}</span>
+                <span class="log-text">{{ log.text }}</span>
+              </div>
             </div>
-
-            <p class="time">{{ currentTask.started_at?.slice(0,19) }} → {{ currentTask.finished_at?.slice(0,19) || '进行中' }}</p>
+            <div v-else-if="!currentTask" style="text-align:center;padding:20px;color:rgba(255,255,255,0.4);font-size:13px">暂无正在运行的任务</div>
           </div>
         </div>
-      </section>
-
-      <section class="panel" style="margin-top:16px">
-        <div class="panel-header">
-          任务记录
-          <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
-        </div>
-        <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
-          <el-table-column label="#" width="50">
-            <template #default="{row}">{{ tasks.length - tasks.findIndex(t => t.id === row.id) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="80">
-            <template #default="{row}">
-              <el-tag :type="{completed:'success',failed:'danger',running:'warning',pending:'info',terminated:'info'}[row.status]||'info'" size="small">
-                {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[row.status]||row.status }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="speed" label="倍速" width="60" align="center" />
-          <el-table-column prop="jobs" label="并发" width="60" align="center" />
-          <el-table-column prop="started_at" label="开始" min-width="140" />
-          <el-table-column prop="finished_at" label="结束" min-width="140" />
-          <el-table-column label="课程" width="70" align="center">
-            <template #default="{row}">
-              <el-button size="small" link type="primary" @click="showTaskDetail(row)">查看</el-button>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="70" align="center">
-            <template #default="{row}">
-              <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
       </section>
     </main>
 
@@ -129,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import Config from './Config.vue'
@@ -149,8 +117,16 @@ const runningTaskCount = ref(0)
 const maxTaskCount = ref(100)
 const detailVisible = ref(false)
 const detailTask = ref(null)
+const logContainer = ref(null)
 let timer = null
 let loadTimer = null
+
+const taskLogs = computed(() => {
+  if (!currentTask.value) return []
+  let p = currentTask.value.progress
+  if (typeof p === 'string') { try { p = JSON.parse(p) } catch { p = null } }
+  return p?.logs || []
+})
 
 const detailCourses = computed(() => {
   if (!detailTask.value) return []
@@ -268,6 +244,12 @@ function startPolling(taskId) {
       const r = await axios.get('/api/study/status/' + taskId)
       if (r.data.success && r.data.task) {
         currentTask.value = r.data.task
+        // 自动滚动日志到底部
+        nextTick(() => {
+          if (logContainer.value) {
+            logContainer.value.scrollTop = logContainer.value.scrollHeight
+          }
+        })
         if (['completed','failed'].includes(r.data.task.status)) {
           clearInterval(timer); timer = null; loadTasks()
         }
@@ -416,6 +398,10 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
+.log-container { max-height: 300px; overflow-y: auto; margin-top: 8px; font-family: monospace; font-size: 12px; line-height: 1.6; }
+.log-line { padding: 1px 0; }
+.log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
+.log-text { color: rgba(255,255,255,0.85); }
 .load-ok { color: #67c23a; font-weight: 600; }
 .detail-course-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .detail-course-item:last-child { border-bottom: none; }
