@@ -7,17 +7,6 @@ import { Chaoxing } from '../../src/core/chaoxing.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
 import bus from './log-bus.js';
-
-// 写进度队列，防止并发写覆盖
-const writeQueue = new Map();
-
-async function enqueueWrite(taskId, fn) {
-  if (!writeQueue.has(taskId)) writeQueue.set(taskId, Promise.resolve());
-  const prev = writeQueue.get(taskId);
-  const next = prev.then(() => fn()).catch(() => {});
-  writeQueue.set(taskId, next);
-  return next;
-}
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -53,44 +42,44 @@ export async function runStudy(params) {
   };
 
   const writeProgress = async (msg) => {
-    return enqueueWrite(taskId, async () => {
     try {
-      const [existing] = await pool.query('SELECT progress FROM study_tasks WHERE id = ?', [taskId]);
-      let progData = { courses: {}, logs: [], timestamp: new Date().toISOString() };
-      if (existing[0]?.progress) {
-        try { progData = JSON.parse(existing[0].progress); } catch {}
-      }
-      if (!progData.courses) progData.courses = {};
-      if (!progData.logs) progData.logs = [];
-
       if (msg.type === 'log' && msg.text) {
-        // 日志消息：只追加日志，不动 courses（防止覆盖进度）
         const entry = { t: new Date().toLocaleTimeString(), text: msg.text };
         bus.emit('log:' + taskId, entry);
-        progData.logs.push(entry);
-        if (progData.logs.length > 200) progData.logs = progData.logs.slice(-200);
-        // 如果 courses 意外被清空，从 DB 读到的原始数据恢复
-        if (!progData.courses || Object.keys(progData.courses).length === 0) {
-          if (existing[0]?.progress) {
-            try {
-              const raw = JSON.parse(existing[0].progress);
-              if (raw.courses && Object.keys(raw.courses).length > 0) progData.courses = raw.courses;
-            } catch {}
-          }
-        }
-      } else if (msg.total > 0) {
-        // 章节进度更新
-        progData.courses[msg.courseId] = {
-          title: msg.courseTitle,
-          total: msg.total,
-          completed: msg.completed
-        };
+        // 只追加日志，不碰 courses - 使用 JSON_SET 直接操作
+        await pool.query(
+          `UPDATE study_tasks SET progress = JSON_SET(
+            COALESCE(progress, '{}'),
+            '$.timestamp', ?,
+            '$.logs', COALESCE(JSON_ARRAY_APPEND(JSON_EXTRACT(progress, '$.logs'), '$', CAST(? AS JSON)), JSON_ARRAY(?))
+          ) WHERE id = ?`,
+          [new Date().toISOString(), JSON.stringify(entry), JSON.stringify(entry), taskId]
+        ).catch(() => {});
+        return;
       }
-      // 其他类型（心跳等）只刷新时间戳
-      progData.timestamp = new Date().toISOString();
-      await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(progData), taskId]);
+
+      if (msg.total > 0) {
+        // 章节进度：只更新 courses，不碰 logs
+        const cid = String(msg.courseId).replace(/[^a-zA-Z0-9_]/g, '');
+        if (!cid) return;
+        const courseData = JSON.stringify({ title: msg.courseTitle, total: msg.total, completed: msg.completed });
+        await pool.query(
+          `UPDATE study_tasks SET progress = JSON_SET(
+            COALESCE(progress, '{}'),
+            '$.timestamp', ?,
+            '$.courses.${cid}', ?
+          ) WHERE id = ?`,
+          [new Date().toISOString(), courseData, taskId]
+        ).catch(() => {});
+        return;
+      }
+
+      // 心跳：只更新时间戳
+      await pool.query(
+        `UPDATE study_tasks SET progress = JSON_SET(COALESCE(progress, '{}'), '$.timestamp', ?) WHERE id = ?`,
+        [new Date().toISOString(), taskId]
+      ).catch(() => {});
     } catch (e) { /* ignore */ }
-    });
   };
 
   try {
@@ -141,6 +130,17 @@ export async function runStudy(params) {
 
       const { points } = await chaoxing.getCoursePoint(course.courseId, course.clazzId, course.cpi);
       if (!points.length) continue;
+
+      // 立即写入初始进度，让前端尽早显示 "0/N 章节"
+      if (chaoxing._onProgress) {
+        await chaoxing._onProgress({
+          type: 'chapter_progress',
+          courseTitle: course.title,
+          courseId: course.courseId,
+          total: points.length,
+          completed: 0
+        });
+      }
 
       const processor = new JobProcessor(chaoxing, course, points, { speed, jobs });
       await processor.run();

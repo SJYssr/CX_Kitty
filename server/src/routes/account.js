@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import pool from '../db.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -13,7 +13,7 @@ router.post('/account/save', async (req, res) => {
     const { phone, password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, defaultSpeed, defaultJobs } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '手机号和密码不能为空' });
 
-    const hashed = crypto.createHash('md5').update(password).digest('hex');
+    const hashed = await bcrypt.hash(password, 10);
     const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
 
     if (existing.length > 0) {
@@ -31,7 +31,7 @@ router.post('/account/save', async (req, res) => {
     }
 
     const [r] = await pool.query(
-      `INSERT INTO accounts (phone, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit)
+      `INSERT INTO accounts (phone, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit, default_speed, default_jobs)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [phone, hashed, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
        enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,

@@ -60,7 +60,7 @@
                   />
                   <div v-else class="waiting-bar"></div>
                 </div>
-                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '0/0 章节' }}</div>
+                <div class="course-detail">{{ currentCourse && currentCourse.total > 0 ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待中...' }}</div>
               </div>
               <div class="course-summary">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</div>
             </div>
@@ -181,21 +181,33 @@ const taskLogs = computed(() => {
   return merged.slice(-20)
 })
 
+let sseReconnectTimer = null
+
 function connectSSE(taskId) {
-  if (sseSource) sseSource.close();
-  liveLogs.value = []
-  sseSource = new EventSource('/api/study/logs/' + taskId)
-  sseSource.onmessage = (e) => {
+  if (sseSource) { sseSource.close(); sseSource = null }
+  if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
+  // 不清空 liveLogs，重连时保留已有日志
+
+  const source = new EventSource('/api/study/logs/' + taskId)
+  source.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data)
       liveLogs.value.push(entry)
       nextTick(() => { if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight })
     } catch {}
   }
+  source.onerror = () => {
+    source.close()
+    sseReconnectTimer = setTimeout(() => {
+      if (currentTask.value?.status === 'running') connectSSE(taskId)
+    }, 5000)
+  }
+  sseSource = source
 }
 
 function disconnectSSE() {
   if (sseSource) { sseSource.close(); sseSource = null }
+  if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
 }
 
 const detailCourses = computed(() => {
@@ -216,7 +228,8 @@ function getTaskIndex(taskId) {
 
 function onConfigDone(configData) {
   Object.assign(props.account, configData)
-  localStorage.setItem('cx_account', JSON.stringify(props.account))
+  const { password, ...safe } = props.account
+  localStorage.setItem('cx_account', JSON.stringify(safe))
   configVisible.value = false
 }
 
@@ -410,7 +423,11 @@ async function start() {
     })
     if (data.success) {
       ElMessage.success('刷课任务已启动')
-      currentTask.value = { id: data.taskId, status: 'running' }
+      currentTask.value = {
+        id: data.taskId,
+        status: 'running',
+        course_ids: selectedCourses.value.length > 0 ? selectedCourses.value : null
+      }
       loadTasks()
       startPolling(data.taskId)
     } else {

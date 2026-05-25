@@ -10,6 +10,7 @@ import { processDocument } from './document.js';
 import { processRead } from './read.js';
 import { processWork } from './work.js';
 
+const TYPE_LABEL = { video: '视频', document: '文档', workid: '答题', work: '答题', read: '阅读', live: '直播' };
 
 /**
  * 作业调度处理器
@@ -20,9 +21,6 @@ export class JobProcessor {
    * @param {Object} course — { courseId, clazzId, cpi, title }
    * @param {Array<{id: string, title: string, jobCount: number, hasFinished: boolean, needUnlock: boolean}>} chapterPoints
    * @param {Object} [config]
-   * @param {number} [config.speed=1] — 倍速
-   * @param {number} [config.jobs=3] — 并行 chapter 数量
-   * @param {string} [config.notopenAction='continue'] — retry|continue
    */
   constructor(chaoxing, course, chapterPoints, config = {}) {
     this.chaoxing = chaoxing;
@@ -32,155 +30,149 @@ export class JobProcessor {
     this.jobs = config.jobs || 3;
     this.notopenAction = config.notopenAction || 'continue';
 
-
+    this._completedCount = 0;
+    this._errorCount = 0;
+    this._notOpenCount = 0;
   }
 
   /**
    * 执行所有章节任务
-   * @returns {Promise<void>}
    */
   async run() {
     logger.info(`课程: ${this.course.title || this.course.courseId}`);
     logger.info(`章节: ${this.chapterPoints.length}, 并行: ${this.jobs}`);
 
-    // 按顺序并发处理章节
     const tasks = this.chapterPoints.map((point, i) => () =>
       this._processChapter(point, i, this.chapterPoints.length)
     );
 
-    // 限制并发
-    const results = [];
     for (let i = 0; i < tasks.length; i += this.jobs) {
-      // 章节间随机延迟 3-8 秒，降低风控触发概率
       if (i > 0) {
         const delay = 3000 + Math.floor(Math.random() * 5000);
         await new Promise(r => setTimeout(r, delay));
       }
 
       const batch = tasks.slice(i, i + this.jobs);
-      const batchResults = await Promise.all(batch.map(t => t()));
-      results.push(...batchResults);
-
-      if (this.chaoxing._taskId) {
-        const doneCount = results.filter(r => r === ChapterResult.SUCCESS).length;
-        const msg = {
-          type: 'chapter_progress',
-          taskId: this.chaoxing._taskId,
-          courseTitle: this.course.title,
-          courseId: this.course.courseId,
-          total: this.chapterPoints.length,
-          completed: doneCount
-        };
-        if (typeof process.send === 'function') process.send(msg);
-        if (typeof this.chaoxing._onProgress === 'function') this.chaoxing._onProgress(msg);
-      }
+      await Promise.all(batch.map(t => t()));
     }
 
-    // 统计结果
-    const successCount = results.filter(r => r === ChapterResult.SUCCESS).length;
-    const errorCount = results.filter(r => r === ChapterResult.ERROR).length;
-    const notOpenCount = results.filter(r => r === ChapterResult.NOT_OPEN).length;
-
-    logger.info(`完成: 成功${successCount} 失败${errorCount} 未开放${notOpenCount}`);
+    logger.info(`完成: 成功${this._completedCount} 失败${this._errorCount} 未开放${this._notOpenCount}`);
   }
 
-  /**
-   * 处理单个章节
-   * @private
-   */
+  // ===================== 进度上报 =====================
+
+  /** 上报当前进度到 DB（等待写入完成） */
+  async _sendProgress() {
+    if (!this.chaoxing._taskId) return;
+    const msg = {
+      type: 'chapter_progress',
+      taskId: this.chaoxing._taskId,
+      courseTitle: this.course.title,
+      courseId: this.course.courseId,
+      total: this.chapterPoints.length,
+      completed: this._completedCount
+    };
+    if (typeof this.chaoxing._onProgress === 'function') {
+      await this.chaoxing._onProgress(msg);
+    }
+  }
+
+  /** 发送日志到 SSE + DB（等待写入完成，保证进度不被覆盖） */
+  async _sendLog(text) {
+    if (!this.chaoxing._taskId) return;
+    const msg = { type: 'log', taskId: this.chaoxing._taskId, text };
+    if (typeof this.chaoxing._onProgress === 'function') {
+      await this.chaoxing._onProgress(msg);
+    }
+  }
+
+  // ===================== 章节处理 =====================
+
   async _processChapter(point, index, total) {
     const label = `[${index + 1}/${total}] ${point.title || point.id}`;
 
+    // 已完成
     if (point.hasFinished) {
       logger.info(`${label} 已完成，跳过`);
-      this._sendLog(`${label} 已完成，跳过`);
+      await this._sendLog(`${label} 已完成，跳过`);
+      this._completedCount++;
+      await this._sendProgress();
       return ChapterResult.SUCCESS;
     }
 
-    // 获取任务列表
+    // 开始处理
+    await this._sendLog(`${label} 正在处理...`);
+
     const { jobs, jobInfo, notOpen } = await this.chaoxing.getJobList(this.course, point);
 
+    // 未开放
     if (notOpen) {
       logger.warn(`${label} 章节未开放，跳过`);
-      this._sendLog(`${label} 章节未开放，跳过`);
+      await this._sendLog(`⚠️ ${label} 章节未开放，跳过`);
+      this._notOpenCount++;
+      await this._sendProgress();
       return ChapterResult.NOT_OPEN;
     }
 
+    // 空章节
     if (!jobs.length) {
       logger.info(`${label} 空章节`);
-      this._sendLog(`${label} 空章节`);
+      await this._sendLog(`${label} 空章节`);
       await this.chaoxing.studyEmptyPage(this.course, point);
+      this._completedCount++;
+      await this._sendProgress();
       return ChapterResult.SUCCESS;
     }
 
-    logger.info(`${label} (${jobs.length} 个任务)`);
-    this._sendLog(`${label} (${jobs.length} 个任务)`);
+    await this._sendLog(`${label} (${jobs.length} 个任务)`);
 
-    // 处理每个 job，跟踪结果
+    // 逐个处理 job
     let allSuccess = true;
     for (const job of jobs) {
+      const jobName = job.name || job.jobid;
+      const typeLabel = TYPE_LABEL[job.type] || (job.type || '任务');
+      await this._sendLog(`  正在完成${typeLabel}: ${jobName}`);
+
       const result = await this._processJob(job, jobInfo);
       if (result !== StudyResult.SUCCESS) {
         allSuccess = false;
-        logger.warn(`${label} 任务未完成: ${job.name || job.jobid} (${result})`);
-        this._sendLog(`⚠️ ${label} 任务未完成: ${job.name || job.jobid}`);
+        await this._sendLog(`  ❌ ${typeLabel}: ${jobName} 失败`);
       } else {
-        this._sendLog(`✅ ${label} ${job.name || job.jobid} 完成`);
+        await this._sendLog(`  ✅ ${typeLabel}: ${jobName} 完成`);
       }
     }
 
+    if (allSuccess) this._completedCount++;
+    else this._errorCount++;
+
+    await this._sendProgress();
     return allSuccess ? ChapterResult.SUCCESS : ChapterResult.ERROR;
   }
 
-  _sendLog(text) {
-    if (!this.chaoxing._taskId) return;
-    const msg = { type: 'log', taskId: this.chaoxing._taskId, text };
-    if (typeof process.send === 'function') process.send(msg);
-    if (typeof this.chaoxing._onProgress === 'function') this.chaoxing._onProgress(msg);
-  }
+  // ===================== 任务分发 =====================
 
-  /**
-   * 处理单个任务
-   * @private
-   */
   async _processJob(job, jobInfo) {
-    let result = StudyResult.ERROR;
-
     try {
       switch (job.type) {
         case 'video':
-          result = await processVideo(this.chaoxing, this.course, job, jobInfo, { speed: this.speed });
-          break;
+          return await processVideo(this.chaoxing, this.course, job, jobInfo, { speed: this.speed });
         case 'document':
-          result = await processDocument(this.chaoxing, this.course, job, jobInfo);
-          break;
+          return await processDocument(this.chaoxing, this.course, job, jobInfo);
         case 'workid':
         case 'work':
-          result = await processWork(this.chaoxing, this.course, job, jobInfo);
-          break;
+          return await processWork(this.chaoxing, this.course, job, jobInfo);
         case 'read':
-          result = await processRead(this.chaoxing, this.course, job, jobInfo);
-          break;
+          return await processRead(this.chaoxing, this.course, job, jobInfo);
         case 'live':
           logger.info(`直播任务跳过: ${job.name || job.jobid}`);
-          result = StudyResult.SUCCESS;
-          break;
+          return StudyResult.SUCCESS;
         default:
           logger.warn(`未知任务类型: ${job.type || 'unknown'}`);
-          result = StudyResult.SUCCESS;
+          return StudyResult.SUCCESS;
       }
     } catch (err) {
       logger.error(`任务异常: ${err.message}`);
-      result = StudyResult.ERROR;
+      return StudyResult.ERROR;
     }
-
-    return result;
   }
-
-  /**
-   * 处理重试队列
-   * @private
-   */
-
-
 }

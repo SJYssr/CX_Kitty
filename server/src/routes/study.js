@@ -76,15 +76,17 @@ router.post('/study/start', async (req, res) => {
       [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
     );
 
-    // 每个用户只保留最新 2 条记录
-    await pool.query(
-      `DELETE FROM study_tasks WHERE account_id = ? AND id NOT IN (
-        SELECT id FROM (
-          SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2
-        ) AS t
-      )`,
-      [accounts[0].id, accounts[0].id]
+    // 每个用户只保留最新 2 条记录（两步查询避免嵌套子查询兼容性问题）
+    const [toKeep] = await pool.query(
+      'SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2',
+      [accounts[0].id]
     );
+    if (toKeep.length > 0) {
+      await pool.query(
+        'DELETE FROM study_tasks WHERE account_id = ? AND id NOT IN (?)',
+        [accounts[0].id, toKeep.map(r => r.id)]
+      );
+    }
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）

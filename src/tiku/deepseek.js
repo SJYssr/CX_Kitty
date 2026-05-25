@@ -8,21 +8,6 @@ import logger from '../utils/logger.js';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
-import fs from 'fs';
-import os from 'os';
-
-function getApiKey() {
-  if (process.env.DEEPSEEK_API_KEY) return process.env.DEEPSEEK_API_KEY;
-  if (process.env.DEEPSEEK_TOKEN) return process.env.DEEPSEEK_TOKEN;
-  try {
-    const home = os.homedir();
-    const script = fs.readFileSync(`${home}/.claude_deepseek.sh`, 'utf8');
-    const m = script.match(/ANTHROPIC_AUTH_TOKEN="([^"]+)"/);
-    if (m) return m[1];
-  } catch (_) {}
-  return '';
-}
-
 /**
  * DeepSeek AI 答题
  */
@@ -32,7 +17,7 @@ export class TikuDeepSeek extends Tiku {
    * @param {string} [model] — 模型名，默认 deepseek-v4-flash
    */
   constructor(apiKey, model = 'deepseek-v4-flash') {
-    super('deepseek', DEEPSEEK_API, apiKey || getApiKey());
+    super('deepseek', DEEPSEEK_API, apiKey || '');
     this._model = model;
   }
 

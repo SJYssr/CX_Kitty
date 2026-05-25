@@ -14,12 +14,14 @@ const account = ref(null)
 
 async function onLogin(data) {
   account.value = data
-  localStorage.setItem('cx_account', JSON.stringify(data))
+  // 不存储密码到 localStorage
+  const { password, ...safe } = data
+  localStorage.setItem('cx_account', JSON.stringify(safe))
   try {
     const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
     if (cfg.success && cfg.config?.deepseek_api_key) {
       account.value = { ...data, ...cfg.config }
-      localStorage.setItem('cx_account', JSON.stringify(account.value))
+      localStorage.setItem('cx_account', JSON.stringify({ ...safe, ...cfg.config }))
     }
   } catch {}
   page.value = 'dashboard'
@@ -35,7 +37,13 @@ onMounted(() => {
   const saved = localStorage.getItem('cx_account')
   if (saved) {
     try {
-      account.value = JSON.parse(saved)
+      const parsed = JSON.parse(saved)
+      // 从 localStorage 恢复的不含密码，需要用户重新登录
+      if (!parsed.password) {
+        page.value = 'login'
+        return
+      }
+      account.value = parsed
       page.value = 'dashboard'
     } catch { localStorage.removeItem('cx_account') }
   }
