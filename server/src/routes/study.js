@@ -21,6 +21,25 @@ router.get('/system/task-count', async (req, res) => {
   }
 });
 
+router.post('/login', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
+
+    const jar = new CookieJar();
+    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
+    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
+
+    const loginResult = await chaoxing.login(false);
+    if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
 router.post('/courses', async (req, res) => {
   try {
     const { phone, password } = req.body;
