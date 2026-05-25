@@ -254,6 +254,7 @@ export class Chaoxing {
 
     let info = { phone, uid, fid, name: '', studentId: '', school: '', major: '', className: '', gender: '', email: '' };
 
+    // 从 interaction 页面获取姓名
     try {
       const resp = await this.axios.get('https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction', {
         headers: cfg.headers, timeout: 8000
@@ -262,34 +263,38 @@ export class Chaoxing {
       const nm = html.match(/realname["']?\s*[:=]\s*["']([^"']+)["']/);
       if (nm) info.name = nm[1];
       if (!info.name) {
-        const nm2 = html.match(/<span[^>]*class=["']user-name["'][^>]*>([^<]+)<\/span>/);
-        if (nm2) info.name = nm2[1].trim();
+        // 尝试从页面文本中找姓名
+        const el = html.match(/<a[^>]*class=["']user-info["'][^>]*>([^<]+)<\/a>/);
+        if (el) info.name = el[1].trim();
       }
     } catch {}
 
-    try {
-      const resp = await this.axios.get('https://passport2.chaoxing.com/user/getUserInfo', {
-        headers: cfg.headers, timeout: 8000
-      });
-      const d = resp.data;
-      if (d && d.result === true) {
-        info.name = d.realname || info.name;
-        info.studentId = d.studentid || d.schoolNumber || '';
-        info.school = d.schoolName || d.school || '';
-        info.major = d.major || '';
-        info.className = d.className || d.classname || '';
-        info.gender = d.gender || d.sex || '';
-        info.email = d.email || '';
-      }
-    } catch {}
-
+    // 从个人中心页面获取详情
     try {
       const resp = await this.axios.get('https://i.chaoxing.com/', {
         headers: cfg.headers, timeout: 8000
       });
       const html = typeof resp.data === 'string' ? resp.data : '';
-      const nm = html.match(/realname["']?\s*[:=]\s*["']([^"']+)["']/);
-      if (nm && !info.name) info.name = nm[1];
+      // 尝试多种匹配方式
+      const patterns = [
+        /realname["']?\s*[:=]\s*["']([^"']+)["']/,
+        /<p[^>]*class=["']user-?name["'][^>]*>([^<]+)<\/p>/,
+        /<span[^>]*class=["']user-?name["'][^>]*>([^<]+)<\/span>/,
+        /<div[^>]*class=["'](?:top)?user-info["'][^>]*>([^<]+)<\/div>/
+      ];
+      for (const p of patterns) {
+        const m = html.match(p);
+        if (m) { info.name = m[1].trim(); break; }
+      }
+      // 提取学号、班级等信息
+      const sid = html.match(/学号[：:]*\s*([0-9]+)/);
+      if (sid) info.studentId = sid[1];
+      const sc = html.match(/学校[：:]*\s*([^<]+)/);
+      if (sc) info.school = sc[1].trim();
+      const cl = html.match(/班级[：:]*\s*([^<]+)/);
+      if (cl) info.className = cl[1].trim();
+      const mj = html.match(/专业[：:]*\s*([^<]+)/);
+      if (mj) info.major = mj[1].trim();
     } catch {}
 
     return info;
