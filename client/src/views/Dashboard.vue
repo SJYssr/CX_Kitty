@@ -39,7 +39,7 @@
 
           <div v-if="currentTask" class="panel" style="margin-top:12px">
             <div class="panel-header">
-              任务 #{{ currentTask.id }}
+              任务 #{{ getTaskIndex(currentTask.id) }}
               <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
             </div>
 
@@ -104,7 +104,7 @@
     <el-dialog v-model="detailVisible" title="任务课程详情" width="500px" :close-on-click-modal="true">
       <template v-if="detailTask">
         <div style="margin-bottom:12px">
-          任务 #{{ detailTask.id }} ·
+          任务 #{{ getTaskIndex(detailTask.id) }} ·
           <el-tag :type="{completed:'success',failed:'danger',running:'warning',terminated:'info'}[detailTask.status]||'info'" size="small">
             {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[detailTask.status]||detailTask.status }}
           </el-tag>
@@ -153,6 +153,11 @@ const detailCourses = computed(() => {
     return { id, title: c?.title || '未知课程', teacher: c?.teacher || '' }
   })
 })
+
+function getTaskIndex(taskId) {
+  const idx = tasks.value.findIndex(t => t.id === taskId)
+  return idx >= 0 ? idx + 1 : taskId
+}
 
 function showTaskDetail(task) {
   detailTask.value = task
