@@ -29,7 +29,7 @@ router.post('/courses', async (req, res) => {
     const jar = new CookieJar();
     const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
     const { Chaoxing } = await import('../../../src/core/chaoxing.js');
-    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, fastMode: true, _standaloneSession: standalone });
+    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
 
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
@@ -76,7 +76,7 @@ router.post('/study/start', async (req, res) => {
       [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
     );
 
-    // 每个用户只保留最新 2 条记录（两步查询避免嵌套子查询兼容性问题）
+    // 每个用户只保留最新 2 条记录
     const [toKeep] = await pool.query(
       'SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2',
       [accounts[0].id]
@@ -168,7 +168,13 @@ router.get('/study/logs/:taskId', (req, res) => {
 
   bus.on('log:' + taskId, onLog);
 
+  // 30秒心跳保活，防止Node.js默认2分钟超时断线
+  const keepAlive = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch { clearInterval(keepAlive); }
+  }, 30000);
+
   req.on('close', () => {
+    clearInterval(keepAlive);
     bus.off('log:' + taskId, onLog);
   });
 });

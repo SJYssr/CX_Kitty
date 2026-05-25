@@ -193,13 +193,14 @@ function connectSSE(taskId) {
     try {
       const entry = JSON.parse(e.data)
       liveLogs.value.push(entry)
+      // 限制 liveLogs 上限，防止内存泄漏
+      if (liveLogs.value.length > 300) liveLogs.value = liveLogs.value.slice(-200)
     } catch {}
   }
   source.onerror = () => {
     source.close()
-    sseReconnectTimer = setTimeout(() => {
-      if (currentTask.value?.status === 'running') connectSSE(taskId)
-    }, 5000)
+    // 强制重连，不管任务状态（状态由外层 sync 保证）
+    sseReconnectTimer = setTimeout(() => connectSSE(taskId), 5000)
   }
   sseSource = source
 }
