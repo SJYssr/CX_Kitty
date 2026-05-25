@@ -46,21 +46,19 @@
               </span>
             </div>
 
-            <!-- 课程进度（只显示当前正在进行的课程） -->
-            <div v-if="currentTask" class="course-progress">
+            <!-- 课程进度 -->
+            <div v-if="currentCourse" class="course-progress">
               <div class="course-item">
-                <div class="course-name">{{ currentCourse?.title || '加载中...' }}</div>
+                <div class="course-name">{{ currentCourse.title }}</div>
                 <div class="course-bar">
                   <el-progress
-                    :percentage="currentCourse?.percent ?? (courseProgress.length ? 0 : undefined)"
-                    :indeterminate="!(currentCourse?.percent > 0) && !courseProgress.length"
-                    :duration="3"
-                    :status="currentCourse?.finished ? 'success' : ''"
+                    :percentage="currentCourse.percent"
+                    :status="currentCourse.finished ? 'success' : ''"
                     :stroke-width="10"
                     :show-text="false"
                   />
                 </div>
-                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待数据...' }}</div>
+                <div class="course-detail">{{ currentCourse.completed }}/{{ currentCourse.total }} 章节</div>
               </div>
             </div>
 
@@ -299,20 +297,9 @@ const courseProgress = computed(() => {
 // 当前正在进行的课程（只取第一个有进度数据的课程）
 const currentCourse = computed(() => {
   const pc = courseProgress.value
-  if (pc.length > 0) {
-    // 取进度最大的课程（正在进行的）
-    const sorted = [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))
-    return sorted[0]
-  }
-  if (!currentTask.value) return null
-  // 无进度数据时从 course_ids 取第一个
-  let ids = currentTask.value.course_ids
-  if (typeof ids === 'string') { try { ids = JSON.parse(ids) } catch { ids = [] } }
-  if (Array.isArray(ids) && ids.length) {
-    const c = courses.value.find(c => c.courseId === ids[0])
-    return { courseId: ids[0], title: c?.title || ids[0], percent: 0, completed: 0, total: 0, finished: false }
-  }
-  return null
+  if (pc.length === 0) return null
+  // 取完成度最高的课程（当前正在进行的）
+  return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
 })
 
 function loadCoursesFromCache() {
