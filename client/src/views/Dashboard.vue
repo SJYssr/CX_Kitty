@@ -68,6 +68,39 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" style="margin-top:16px">
+        <div class="panel-header">
+          任务记录
+          <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
+        </div>
+        <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
+          <el-table-column label="#" width="50">
+            <template #default="{row}">{{ tasks.length - tasks.findIndex(t => t.id === row.id) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="80">
+            <template #default="{row}">
+              <el-tag :type="{completed:'success',failed:'danger',running:'warning',pending:'info',terminated:'info'}[row.status]||'info'" size="small">
+                {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[row.status]||row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="speed" label="倍速" width="60" align="center" />
+          <el-table-column prop="jobs" label="并发" width="60" align="center" />
+          <el-table-column prop="started_at" label="开始" min-width="140" />
+          <el-table-column prop="finished_at" label="结束" min-width="140" />
+          <el-table-column label="课程" width="70" align="center">
+            <template #default="{row}">
+              <el-button size="small" link type="primary" @click="showTaskDetail(row)">查看</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="70" align="center">
+            <template #default="{row}">
+              <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
     </main>
 
     <!-- 任务详情弹窗 -->

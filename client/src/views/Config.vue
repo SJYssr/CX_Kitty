@@ -1,11 +1,9 @@
 <template>
   <div class="config-page" :class="{ 'dialog-mode': dialogMode }">
     <div class="card">
-      
-      <h1>AI 刷课配置</h1>
-      <p class="phone">{{ account.phone }}</p>
+      <p class="phone" v-if="!dialogMode">{{ account.phone }}</p>
 
-      <el-form label-position="top" size="small">
+      <el-form label-position="top" size="small" class="config-form">
         <el-form-item label="DeepSeek API Key">
           <el-input v-model="form.deepseekApiKey" type="password" placeholder="sk-..." show-password @input="onKeyChange" />
         </el-form-item>
@@ -146,7 +144,14 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.config-page.dialog-mode { padding: 0; }
+.config-page.dialog-mode { padding: 0; width: 100%; }
+.config-form label { color: rgba(255,255,255,0.8) !important; }
+.config-form :deep(.el-input__wrapper) { background: rgba(255,255,255,0.1); box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset; }
+.config-form :deep(.el-input__inner) { color: #fff; }
+.config-form :deep(.el-select .el-input__wrapper) { background: rgba(255,255,255,0.1); }
+.config-form :deep(.el-switch__label) { color: rgba(255,255,255,0.7); }
+.config-form :deep(.el-divider) { border-color: rgba(255,255,255,0.1); }
+.config-form :deep(.el-form-item__label) { color: rgba(255,255,255,0.8); }
 .config-page:not(.dialog-mode) {
   display: flex; justify-content: center; align-items: center;
   min-height: 100vh;
