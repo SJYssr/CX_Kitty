@@ -7,7 +7,6 @@
         <div class="user-phone">{{ account.phone }}</div>
       </div>
       <div class="system-load">系统负载: <el-tag :type="systemLoadClass" size="small">{{ runningTaskCount }}/{{ maxTaskCount }}</el-tag></div>
-      <el-button size="small" @click="configVisible = true">配置</el-button>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
 
@@ -38,9 +37,12 @@
               </span>
             </div>
 
-            <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%;margin-bottom:12px" @click="start">
-              {{ starting ? '启动中…' : startBtnText }}
-            </el-button>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <el-button size="small" @click="configVisible = true">配置</el-button>
+              <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="flex:1" @click="start">
+                {{ starting ? '启动中…' : startBtnText }}
+              </el-button>
+            </div>
 
             <!-- 课程进度（任务存在就显示） -->
             <div v-if="currentTask" class="course-progress">
