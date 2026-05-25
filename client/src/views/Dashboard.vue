@@ -178,7 +178,7 @@ const taskLogs = computed(() => {
   for (const l of dbLogs) {
     if (!merged.find(m => m.t === l.t && m.text === l.text)) merged.push(l)
   }
-  return merged.slice(-20)
+  return merged.slice(-20).reverse()
 })
 
 let sseReconnectTimer = null
