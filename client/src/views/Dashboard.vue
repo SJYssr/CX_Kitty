@@ -466,11 +466,20 @@ onUnmounted(() => {
 :deep(.el-button--primary:hover) { background: rgba(64,158,255,0.8); }
 
 /* Dialog 毛玻璃 */
-:deep(.el-dialog) { background: rgba(0,0,0,0.5); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; }
+:deep(.el-overlay) { background: rgba(0,0,0,0.4); }
+:deep(.el-dialog) {
+  background: rgba(255,255,255,0.1) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
 :deep(.el-dialog__title) { color: #fff; }
+:deep(.el-dialog__header) { border-bottom: 1px solid rgba(255,255,255,0.1); padding: 16px 24px; }
 :deep(.el-dialog__headerbtn .el-dialog__close) { color: rgba(255,255,255,0.6); }
 :deep(.el-dialog__headerbtn:hover .el-dialog__close) { color: #fff; }
-:deep(.el-dialog__body) { color: rgba(255,255,255,0.9); }
+:deep(.el-dialog__body) { padding: 20px 24px; color: rgba(255,255,255,0.9); }
 
 /* 标签毛玻璃 */
 :deep(.el-tag) { --el-tag-bg-color: rgba(255,255,255,0.1); --el-tag-border-color: rgba(255,255,255,0.2); --el-tag-text-color: #fff; }
