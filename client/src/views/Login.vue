@@ -90,7 +90,7 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 .login-page::before {
   content: "";
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80') center/cover no-repeat fixed;
+  background: url('/bg.jpg') center/cover no-repeat fixed;
   filter: blur(8px);
   z-index: -1;
 }
