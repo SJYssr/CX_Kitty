@@ -83,6 +83,7 @@ export class Chaoxing {
     this._uid = null;
     this._fid = DEFAULT_FID;
     this._taskId = null;
+    this.rollbackTimes = 0;
   }
 
   // ===================== 登录 =====================
@@ -796,10 +797,12 @@ export class Chaoxing {
       const coverage = totalQuestions > 0 ? foundQuestions / totalQuestions : 0;
       logger.info(`答题覆盖率: ${(coverage * 100).toFixed(0)}% (${foundQuestions}/${totalQuestions})`);
 
-      // 4. 判断是否直接提交
+      // 4. 判断是否直接提交（参照 Python 源码）
       const submit = this.tiku.SUBMIT;
       const coverRate = this.tiku.COVER_RATE;
-      const pyFlag = (submit && coverage >= coverRate) ? '' : '1';
+      // 如果之前已回滚过，强制提交；否则按覆盖率和提交模式判断
+      const shouldSubmit = this.rollbackTimes >= 1 || (submit && coverage >= coverRate);
+      const pyFlag = shouldSubmit ? '' : '1';
 
       // 5. 提交
       formData.pyFlag = pyFlag;
