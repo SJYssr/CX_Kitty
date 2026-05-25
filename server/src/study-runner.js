@@ -7,6 +7,17 @@ import { Chaoxing } from '../../src/core/chaoxing.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
 import bus from './log-bus.js';
+
+// 写进度队列，防止并发写覆盖
+const writeQueue = new Map();
+
+async function enqueueWrite(taskId, fn) {
+  if (!writeQueue.has(taskId)) writeQueue.set(taskId, Promise.resolve());
+  const prev = writeQueue.get(taskId);
+  const next = prev.then(() => fn()).catch(() => {});
+  writeQueue.set(taskId, next);
+  return next;
+}
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -42,6 +53,7 @@ export async function runStudy(params) {
   };
 
   const writeProgress = async (msg) => {
+    return enqueueWrite(taskId, async () => {
     try {
       const [existing] = await pool.query('SELECT progress FROM study_tasks WHERE id = ?', [taskId]);
       let progData = { courses: {}, logs: [], timestamp: new Date().toISOString() };
@@ -70,6 +82,7 @@ export async function runStudy(params) {
       progData.timestamp = new Date().toISOString();
       await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(progData), taskId]);
     } catch (e) { /* ignore */ }
+    });
   };
 
   try {
