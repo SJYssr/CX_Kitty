@@ -88,10 +88,10 @@ router.post('/account/info', async (req, res) => {
 
     const info = await chaoxing.getUserInfo();
 
-    if (info.name || info.studentId) {
+    if (info.name) {
       await pool.query(
-        'UPDATE accounts SET name=?, student_id=?, school=?, major=?, class_name=?, gender=?, email=? WHERE phone=?',
-        [info.name || '', info.studentId || '', info.school || '', info.major || '', info.className || '', info.gender || '', info.email || '', phone]
+        'UPDATE accounts SET name=? WHERE phone=?',
+        [info.name, phone]
       ).catch(() => {});
     }
 
