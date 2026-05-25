@@ -176,10 +176,15 @@ const taskLogs = computed(() => {
     if (typeof p === 'string') { try { dbLogs = JSON.parse(p)?.logs || [] } catch {} }
     else { dbLogs = p?.logs || [] }
   }
-  const merged = [...liveLogs.value]
-  for (const l of dbLogs) {
-    if (!merged.find(m => m.t === l.t && m.text === l.text)) merged.push(l)
+  // 以 DB 日志为主，合并实时日志
+  const seen = new Set(dbLogs.map(l => l.t + '|' + l.text))
+  const merged = [...dbLogs]
+  for (const l of liveLogs.value) {
+    if (!seen.has(l.t + '|' + l.text)) merged.push(l)
   }
+  // 按时间排序（旧的在前）
+  merged.sort((a, b) => (a.t || '').localeCompare(b.t || ''))
+  // 取最后 20 条（最新的），再反转成新在上旧在下
   return merged.slice(-20).reverse()
 })
 

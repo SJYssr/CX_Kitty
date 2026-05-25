@@ -431,13 +431,21 @@ export class Chaoxing {
           };
         }
 
-        // 如果返回了数据但 status 不是 success（如 404），尝试重新登录后重试
-        if (retry === 0 && this.account.password) {
-          logger.info('视频状态异常，尝试重新登录...');
-          await this.login(false);
+        // 如果返回的是下载链接(非标准ananas视频)，模拟完成
+        if (resp.data && resp.data.download) {
+          // 仍尝试发送心跳来真正完成视频（duration=1模拟播放1秒）
+          return {
+            dtoken: '',
+            duration: 1,
+            crc: '',
+            key: ''
+          };
         }
-      } catch (_) {
-        // 网络错误等，继续重试
+
+        // 打印响应内容便于调试
+        logger.warn(`视频状态异常: ${resp.status} ${typeof resp.data === 'string' ? resp.data.slice(0,100) : JSON.stringify(resp.data).slice(0,100)}`);
+      } catch (e) {
+        logger.warn(`视频状态请求异常: ${e.message}`);
       }
     }
     return null;

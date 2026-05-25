@@ -33,6 +33,7 @@ export class JobProcessor {
     this._completedCount = 0;
     this._errorCount = 0;
     this._notOpenCount = 0;
+    this._completedJobIds = new Set();
   }
 
   /**
@@ -126,11 +127,19 @@ export class JobProcessor {
 
     await this._sendLog(`${label} (${jobs.length} 个任务)`);
 
-    // 逐个处理 job
+    // 逐个处理 job，跳过已完成的
     let allSuccess = true;
     for (const job of jobs) {
       const jobName = job.name || job.jobid;
+      const jobKey = job.jobid || jobName;
       const typeLabel = TYPE_LABEL[job.type] || (job.type || '任务');
+
+      // 如果这个 job 已经在本次运行中完成过，跳过
+      if (this._completedJobIds.has(jobKey)) {
+        await this._sendLog(`  ✅ ${typeLabel}: ${jobName} 已跳过（之前已完成）`);
+        continue;
+      }
+
       await this._sendLog(`  正在完成${typeLabel}: ${jobName}`);
 
       const result = await this._processJob(job, jobInfo);
@@ -139,6 +148,7 @@ export class JobProcessor {
         await this._sendLog(`  ❌ ${typeLabel}: ${jobName} 失败`);
       } else {
         await this._sendLog(`  ✅ ${typeLabel}: ${jobName} 完成`);
+        this._completedJobIds.add(jobKey);
       }
     }
 
