@@ -2,7 +2,10 @@
   <div class="app">
     <header class="topbar">
       <span class="brand">CX_Kitty</span>
-      <span class="user">{{ account.name || account.phone }}</span>
+      <div class="user-info">
+        <div v-if="account.name" class="user-name">{{ account.name }}</div>
+        <div class="user-phone">{{ account.phone }}</div>
+      </div>
       <el-button size="small" @click="configVisible = true">配置</el-button>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
@@ -547,8 +550,9 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
-.brand { font-weight: 600; font-size: 16px; margin-right: auto; color: #fff; }
-.user { color: rgba(255,255,255,0.8); font-size: 13px; }
+.user-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; }
+.user-name { color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; line-height: 1.3; }
+.user-phone { color: rgba(255,255,255,0.5); font-size: 11px; line-height: 1.3; }
 .main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 300px; }
