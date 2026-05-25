@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import pool from '../db.js';
+import axios from 'axios';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 
 const router = Router();
 
@@ -64,6 +67,35 @@ router.get('/account/config', async (req, res) => {
         default_jobs: rows[0].default_jobs || 1
       }
     });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
+// 获取/刷新用户个人信息（进程内，无需 fork）
+router.post('/account/info', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) return res.json({ success: false, message: '缺少手机号或密码' });
+
+    const jar = new CookieJar();
+    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
+    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
+
+    const loginResult = await chaoxing.login(false);
+    if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
+
+    const info = await chaoxing.getUserInfo();
+
+    if (info.name || info.studentId) {
+      await pool.query(
+        'UPDATE accounts SET name=?, student_id=?, school=?, major=?, class_name=?, gender=?, email=? WHERE phone=?',
+        [info.name || '', info.studentId || '', info.school || '', info.major || '', info.className || '', info.gender || '', info.email || '', phone]
+      ).catch(() => {});
+    }
+
+    res.json({ success: true, info });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }

@@ -27,7 +27,7 @@ router.post('/courses', async (req, res) => {
 
     const jar = new CookieJar();
     const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-    const { Chaoxing } = await import('../../src/core/chaoxing.js');
+    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
     const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
 
     const loginResult = await chaoxing.login(false);
