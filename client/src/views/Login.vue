@@ -138,7 +138,7 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 .desc { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 32px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
 .copyright {
-  position: fixed; bottom: 30px; left: 0; right: 0;
+  position: fixed; bottom: 40px; left: 0; right: 0;
   text-align: center; font-size: 12px; color: rgba(255,255,255,0.4);
 }
 
