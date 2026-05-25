@@ -57,7 +57,7 @@ export class Chaoxing {
       this.session = SessionManager.getInstance();
       this.axios = SessionManager.getSession();
     }
-    this.rateLimiter = new RateLimiter(500);
+    this.rateLimiter = new RateLimiter(1200);
 
     this._uid = null;
     this._fid = DEFAULT_FID;
@@ -104,7 +104,7 @@ export class Chaoxing {
         independentId: '0'
       });
 
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
 
       const resp = await this.axios.post(
         'https://passport2.chaoxing.com/fanyalogin',
@@ -145,7 +145,7 @@ export class Chaoxing {
     if (!uidCookie) return false;
 
     try {
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
 
       const resp = await this.axios.post(
         'https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata',
@@ -197,7 +197,7 @@ export class Chaoxing {
   async getCourseList() {
     try {
       // 1. 先获取主列表
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp = await this.axios.post(
         'https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata',
         new URLSearchParams({ courseType: '1', courseFolderId: '0', query: '', superstarClass: '0' }).toString(),
@@ -205,13 +205,13 @@ export class Chaoxing {
       );
 
       // 2. 获取交互页 (获取二级文件夹)
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       await this.axios.get('https://mooc2-ans.chaoxing.com/mooc2-ans/visit/interaction', {
         headers: cfg.headers
       }).catch(() => {});
 
       // 3. 重新请求主列表 (交互后 session 建立)
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp2 = await this.axios.post(
         'https://mooc2-ans.chaoxing.com/mooc2-ans/visit/courselistdata',
         new URLSearchParams({ courseType: '1', courseFolderId: '0', query: '', superstarClass: '0' }).toString(),
@@ -292,7 +292,7 @@ export class Chaoxing {
     try {
       const url = `https://mooc2-ans.chaoxing.com/mooc2-ans/mycourse/studentcourse?courseid=${courseId}&clazzid=${clazzId}&cpi=${cpi}&ut=s`;
 
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp = await this.axios.get(url, { headers: cfg.headers });
 
       const html = typeof resp.data === 'string' ? resp.data : '';
@@ -325,7 +325,7 @@ export class Chaoxing {
       const url = `https://mooc1.chaoxing.com/mooc-ans/knowledge/cards?clazzid=${course.clazzId}&courseid=${course.courseId}&knowledgeid=${point.id}&num=${num}&ut=s&cpi=${course.cpi}&v=2025-0424-1038-3&mooc2=1`;
 
       try {
-        await this.rateLimiter.acquire();
+        await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
         const resp = await this.axios.get(url, { headers: cfg.videoHeaders });
         const html = typeof resp.data === 'string' ? resp.data : '';
 
@@ -625,7 +625,7 @@ export class Chaoxing {
       const kid = (this._currentKnowledgeId || job.knowledgeid || (jobInfo && jobInfo.knowledgeid) || '');
       const url = `https://mooc1.chaoxing.com/ananas/job/document?jobid=${job.jobid}&knowledgeid=${kid}&courseid=${course.courseId}&clazzid=${course.clazzId}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
 
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp = await this.axios.get(url, { headers: cfg.headers, timeout: 15000 });
 
       if (resp.status === 200) {
@@ -652,7 +652,7 @@ export class Chaoxing {
       const knowledgeid = jobInfo ? jobInfo.knowledgeid : (course.knowledgeid || '');
       const url = `https://mooc1.chaoxing.com/ananas/job/read?jobid=${job.jobid}&knowledgeid=${knowledgeid}&courseid=${course.courseId}&clazzid=${course.clazzId}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
 
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp = await this.axios.get(url, { headers: cfg.headers, timeout: 15000 });
 
       if (resp.status === 200) {
@@ -686,7 +686,7 @@ export class Chaoxing {
       // 1. 获取题目页面
       const workUrl = `https://mooc1.chaoxing.com/mooc-ans/api/work?courseid=${course.courseId}&clazzid=${course.clazzId}&knowledgeid=${knowledgeid}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
 
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const resp = await this.axios.get(workUrl, { headers: cfg.headers, timeout: 15000 });
 
       const html = typeof resp.data === 'string' ? resp.data : '';
@@ -752,7 +752,7 @@ export class Chaoxing {
       formData.key = jobInfo ? (jobInfo.mtEnc || jobInfo.defenc || '') : '';
 
       const params = new URLSearchParams(formData);
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const submitResp = await this.axios.post(
         'https://mooc1.chaoxing.com/mooc-ans/api/work',
         params.toString(),
@@ -791,7 +791,7 @@ export class Chaoxing {
   async studyEmptyPage(course, point) {
     // 空章节直接标记完成
     try {
-      await this.rateLimiter.acquire();
+      await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       await this.axios.get(
         `https://mooc1.chaoxing.com/mooc-ans/knowledge/cards?clazzid=${course.clazzId}&courseid=${course.courseId}&knowledgeid=${point.id}&num=0&ut=s&cpi=${course.cpi}`,
         { headers: cfg.videoHeaders, timeout: 10000 }

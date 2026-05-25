@@ -56,6 +56,12 @@ export class JobProcessor {
     // 限制并发
     const results = [];
     for (let i = 0; i < tasks.length; i += this.jobs) {
+      // 章节间随机延迟 3-8 秒，降低风控触发概率
+      if (i > 0) {
+        const delay = 3000 + Math.floor(Math.random() * 5000);
+        await new Promise(r => setTimeout(r, delay));
+      }
+
       const batch = tasks.slice(i, i + this.jobs);
       const batchResults = await Promise.all(batch.map(t => t()));
       results.push(...batchResults);

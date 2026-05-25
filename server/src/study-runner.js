@@ -90,7 +90,15 @@ export async function runStudy(params) {
       return;
     }
 
-    for (const course of targetCourses) {
+    for (let ci = 0; ci < targetCourses.length; ci++) {
+      const course = targetCourses[ci];
+
+      // 课程间随机延迟 10-30 秒
+      if (ci > 0) {
+        const delay = 10000 + Math.floor(Math.random() * 20000);
+        await new Promise(r => setTimeout(r, delay));
+      }
+
       const { points } = await chaoxing.getCoursePoint(course.courseId, course.clazzId, course.cpi);
       if (!points.length) continue;
 
