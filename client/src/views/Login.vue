@@ -32,7 +32,10 @@
       <p v-if="error" class="error">{{ error }}</p>
     </div>
     <div class="copyright">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
-    <div class="disclaimer">该项目如果对您造成不良后果，需要您个人承担 一切解释权归SJYssr所有</div>
+    <div class="disclaimer">
+      该项目如果对您造成不良后果，需要您个人承担<br>
+      一切解释权归SJYssr所有
+    </div>
   </div>
 </template>
 
