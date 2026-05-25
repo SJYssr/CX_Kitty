@@ -69,8 +69,11 @@ export async function runStudy(params) {
   };
 
   try {
-    const tiku = new TikuDeepSeek(deepseekApiKey || '');
-    tiku.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
+    const tiku = (params.enableAnswering !== false) ? (() => {
+      const t = new TikuDeepSeek(deepseekApiKey || '');
+      t.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
+      return t;
+    })() : null;
 
     // 每个任务创建独立的 session，避免串号
     const jar = new CookieJar();
