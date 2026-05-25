@@ -111,9 +111,9 @@ function onSelectionChange(selection) {
 }
 
 const taskTag = computed(() =>
-  ({ completed:'success', failed:'danger', running:'warning' }[currentTask.value?.status] || 'info'))
+  ({ completed:'success', failed:'danger', running:'warning', terminated:'info' }[currentTask.value?.status] || 'info'))
 const taskText = computed(() =>
-  ({ completed:'✅ 完成', failed:'❌ 失败', running:'⏳ 进行中' }[currentTask.value?.status] || '等待'))
+  ({ completed:'✅ 完成', failed:'❌ 失败', running:'⏳ 进行中', terminated:'已终止' }[currentTask.value?.status] || '等待'))
 const taskPct = computed(() => {
   if (!currentTask.value) return 0
   if (currentTask.value.status === 'completed') return 100
