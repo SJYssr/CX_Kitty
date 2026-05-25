@@ -82,7 +82,7 @@ const form = ref({
   enableAnswering: true,
   autoSubmit: false,
   defaultSpeed: 1,
-  defaultJobs: 3
+  defaultJobs: 1
 })
 
 let timer = null
@@ -126,7 +126,7 @@ onMounted(async () => {
         form.value.enableAnswering = data.config.enable_answering !== false
         form.value.autoSubmit = !!data.config.auto_submit
         form.value.defaultSpeed = data.config.default_speed || 1
-        form.value.defaultJobs = data.config.default_jobs || 3
+        form.value.defaultJobs = data.config.default_jobs || 1
         if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
         return
       }
@@ -139,7 +139,7 @@ onMounted(async () => {
     form.value.enableAnswering = props.account.enableAnswering !== false
     form.value.autoSubmit = !!props.account.autoSubmit
     form.value.defaultSpeed = props.account.defaultSpeed || 1
-    form.value.defaultJobs = props.account.defaultJobs || 3
+    form.value.defaultJobs = props.account.defaultJobs || 1
     if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
   }
 })
