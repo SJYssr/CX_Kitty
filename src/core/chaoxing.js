@@ -55,6 +55,7 @@ export class Chaoxing {
 
     this._uid = null;
     this._fid = DEFAULT_FID;
+    this._taskId = null;
   }
 
   // ===================== 登录 =====================

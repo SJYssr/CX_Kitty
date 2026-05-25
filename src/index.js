@@ -27,6 +27,7 @@ function parseArgs() {
     jobs: 3,
     notopenAction: 'continue',
     configFile: '',
+    taskId: '',
     tiku: {
       provider: 'deepseek',
       submit: false,
@@ -71,6 +72,9 @@ function parseArgs() {
         break;
       case '--tk-disable':
         opts.tiku.disabled = true;
+        break;
+      case '--task-id':
+        opts.taskId = args[++i] || '';
         break;
       case '-h':
       case '--help':
@@ -201,6 +205,8 @@ async function main() {
     }
   );
 
+  if (cliOpts.taskId) chaoxing._taskId = cliOpts.taskId;
+
   // 登录 (优先用 cookies)
   const loginResult = await chaoxing.login(true);
   if (!loginResult.status) {
@@ -257,6 +263,19 @@ async function main() {
     });
 
     await processor.run();
+
+    if (process.send && chaoxing._taskId) {
+      process.send({
+        type: 'course_done',
+        taskId: chaoxing._taskId,
+        course: course.title,
+        courseId: course.courseId
+      });
+    }
+  }
+
+  if (process.send && chaoxing._taskId) {
+    process.send({ type: 'all_done', taskId: chaoxing._taskId });
   }
 
   console.log('\n🎉 全部课程处理完成!\n');

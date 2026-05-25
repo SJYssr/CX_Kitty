@@ -59,6 +59,20 @@ export class JobProcessor {
       const batch = tasks.slice(i, i + this.jobs);
       const batchResults = await Promise.all(batch.map(t => t()));
       results.push(...batchResults);
+
+      if (process.send && this.chaoxing._taskId) {
+        const doneCount = results.filter(r => r === ChapterResult.SUCCESS).length;
+        const processedCount = results.length;
+        process.send({
+          type: 'chapter_progress',
+          taskId: this.chaoxing._taskId,
+          courseTitle: this.course.title,
+          courseId: this.course.courseId,
+          total: this.chapterPoints.length,
+          completed: doneCount,
+          processed: processedCount
+        });
+      }
     }
 
     // 处理重试队列
