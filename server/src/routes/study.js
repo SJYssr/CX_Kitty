@@ -15,7 +15,7 @@ router.get('/system/task-count', async (req, res) => {
     const [rows] = await pool.query(
       "SELECT COUNT(*) AS count FROM study_tasks WHERE status = 'running'"
     );
-    res.json({ success: true, count: rows[0].count, max: 30 });
+    res.json({ success: true, count: rows[0].count, max: 50 });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }

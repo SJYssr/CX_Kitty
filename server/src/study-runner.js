@@ -26,7 +26,7 @@ import { CookieJar } from 'tough-cookie';
  * @param {Object} params.pool — mysql2/promise pool
  */
 // 全局节流器 — 所有任务共用，控制对超星的整体请求频率
-const GLOBAL_THROTTLE = new RateLimiter(800);
+const GLOBAL_THROTTLE = new RateLimiter(200);
 
 export async function runStudy(params) {
   const { phone, password, courseIds, speed, jobs, deepseekApiKey, autoSubmit, taskId, pool } = params;
