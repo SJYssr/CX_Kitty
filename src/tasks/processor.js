@@ -10,9 +10,6 @@ import { processDocument } from './document.js';
 import { processRead } from './read.js';
 import { processWork } from './work.js';
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 /**
  * 作业调度处理器
@@ -35,9 +32,7 @@ export class JobProcessor {
     this.jobs = config.jobs || 3;
     this.notopenAction = config.notopenAction || 'continue';
 
-    /** 重试队列 */
-    this.retryQueue = [];
-    this.maxRetries = 5;
+
   }
 
   /**
@@ -81,9 +76,6 @@ export class JobProcessor {
       }
     }
 
-    // 处理重试队列
-    await this._processRetryQueue();
-
     // 统计结果
     const successCount = results.filter(r => r === ChapterResult.SUCCESS).length;
     const errorCount = results.filter(r => r === ChapterResult.ERROR).length;
@@ -108,10 +100,7 @@ export class JobProcessor {
     const { jobs, jobInfo, notOpen } = await this.chaoxing.getJobList(this.course, point);
 
     if (notOpen) {
-      logger.warn(`${label} 章节未开放`);
-      if (this.notopenAction === 'retry') {
-        this.retryQueue.push({ point, jobs, jobInfo, retries: 0 });
-      }
+      logger.warn(`${label} 章节未开放，跳过`);
       return ChapterResult.NOT_OPEN;
     }
 
@@ -178,30 +167,6 @@ export class JobProcessor {
    * 处理重试队列
    * @private
    */
-  async _processRetryQueue() {
-    while (this.retryQueue.length > 0) {
-      const entry = this.retryQueue.shift();
 
-      if (entry.retries >= this.maxRetries) {
-        logger.warn(`章节重试超限: ${entry.point.title}`);
-        continue;
-      }
-
-      await sleep(5000); // 重试前等待
-
-      const { jobs, jobInfo, notOpen } = await this.chaoxing.getJobList(this.course, entry.point);
-
-      if (notOpen) {
-        entry.retries++;
-        this.retryQueue.push(entry);
-        continue;
-      }
-
-      logger.info(`重试章节: ${entry.point.title}`);
-      for (const job of jobs) {
-        await this._processJob(job, jobInfo);
-      }
-    }
-  }
 
 }
