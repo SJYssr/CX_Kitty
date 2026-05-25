@@ -58,13 +58,16 @@
             </div>
 
             <!-- 实时日志 -->
-            <div ref="logContainer" class="log-container" v-if="taskLogs.length">
-              <div v-for="(log, i) in taskLogs" :key="i" class="log-line">
-                <span class="log-time">{{ log.t }}</span>
-                <span class="log-text">{{ log.text }}</span>
+            <div ref="logContainer" class="log-container">
+              <div v-if="taskLogs.length">
+                <div v-for="(log, i) in taskLogs" :key="i" class="log-line">
+                  <span class="log-time">{{ log.t }}</span>
+                  <span class="log-text">{{ log.text }}</span>
+                </div>
               </div>
+              <div v-else-if="currentTask" style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">等待任务日志...</div>
+              <div v-else style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">暂无正在运行的任务</div>
             </div>
-            <div v-else-if="!currentTask" style="text-align:center;padding:20px;color:rgba(255,255,255,0.4);font-size:13px">暂无正在运行的任务</div>
           </div>
         </div>
       </section>
@@ -151,16 +154,41 @@ const maxTaskCount = ref(100)
 const detailVisible = ref(false)
 const detailTask = ref(null)
 const logContainer = ref(null)
+const liveLogs = ref([])
 let timer = null
 let loadTimer = null
+let sseSource = null
 
 const taskLogs = computed(() => {
-  if (!currentTask.value) return []
-  let p = currentTask.value.progress
-  if (typeof p === 'string') { try { p = JSON.parse(p) } catch { p = null } }
-  const logs = p?.logs || []
-  return logs.slice(-20)
+  const p = currentTask.value?.progress
+  let dbLogs = []
+  if (p) {
+    if (typeof p === 'string') { try { dbLogs = JSON.parse(p)?.logs || [] } catch {} }
+    else { dbLogs = p?.logs || [] }
+  }
+  const merged = [...liveLogs.value]
+  for (const l of dbLogs) {
+    if (!merged.find(m => m.t === l.t && m.text === l.text)) merged.push(l)
+  }
+  return merged.slice(-20)
 })
+
+function connectSSE(taskId) {
+  if (sseSource) sseSource.close();
+  liveLogs.value = []
+  sseSource = new EventSource('/api/study/logs/' + taskId)
+  sseSource.onmessage = (e) => {
+    try {
+      const entry = JSON.parse(e.data)
+      liveLogs.value.push(entry)
+      nextTick(() => { if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight })
+    } catch {}
+  }
+}
+
+function disconnectSSE() {
+  if (sseSource) { sseSource.close(); sseSource = null }
+}
 
 const detailCourses = computed(() => {
   if (!detailTask.value) return []
@@ -290,20 +318,15 @@ async function loadCourses(force = false) {
 }
 
 function startPolling(taskId) {
+  connectSSE(taskId)
   if (timer) clearInterval(timer);
   timer = setInterval(async () => {
     try {
       const r = await axios.get('/api/study/status/' + taskId)
       if (r.data.success && r.data.task) {
         currentTask.value = r.data.task
-        // 自动滚动日志到底部
-        nextTick(() => {
-          if (logContainer.value) {
-            logContainer.value.scrollTop = logContainer.value.scrollHeight
-          }
-        })
         if (['completed','failed'].includes(r.data.task.status)) {
-          clearInterval(timer); timer = null; loadTasks()
+          clearInterval(timer); timer = null; disconnectSSE(); loadTasks()
         }
       }
     } catch {}
@@ -365,6 +388,7 @@ async function terminateTask(taskId) {
       loadTasks()
       if (currentTask.value?.id === taskId) {
         if (timer) { clearInterval(timer); timer = null }
+        disconnectSSE()
         currentTask.value = null
       }
     } else {
@@ -410,6 +434,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (loadTimer) clearInterval(loadTimer)
+  disconnectSSE()
 })
 </script>
 
@@ -450,8 +475,8 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
-.task-log-panel { max-height: 500px; display: flex; flex-direction: column; overflow: hidden; }
-.course-progress { flex-shrink: 0; margin: 8px 0; }
+.task-log-panel { height: 420px; display: flex; flex-direction: column; overflow: hidden; }
+.course-progress { flex-shrink: 0; }
 .log-container { flex: 1; min-height: 0; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
@@ -463,7 +488,7 @@ onUnmounted(() => {
 .detail-course-meta { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
 .load-full { color: #f56c6c; font-weight: 600; }
 .time { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 8px; text-align: center; }
-.course-progress { margin: 8px 0; max-height: 300px; overflow-y: auto; }
+.course-progress { flex-shrink: 0; margin: 8px 0; }
 .course-item { margin-bottom: 10px; }
 .course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
 .course-detail { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; text-align: right; }

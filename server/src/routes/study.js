@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
+import bus from '../log-bus.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -142,6 +143,28 @@ router.get('/study/tasks', async (req, res) => {
   } catch (err) {
     res.json({ success: false, message: err.message });
   }
+});
+
+// 实时日志 SSE
+router.get('/study/logs/:taskId', (req, res) => {
+  const taskId = req.params.taskId;
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write(':\n\n'); // 初始化
+
+  const onLog = (entry) => {
+    try { res.write(`data: ${JSON.stringify(entry)}\n\n`); } catch {}
+  };
+
+  bus.on('log:' + taskId, onLog);
+
+  req.on('close', () => {
+    bus.off('log:' + taskId, onLog);
+  });
 });
 
 export default router;

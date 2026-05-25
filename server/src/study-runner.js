@@ -6,6 +6,7 @@
 import { Chaoxing } from '../../src/core/chaoxing.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
+import bus from './log-bus.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -51,8 +52,11 @@ export async function runStudy(params) {
       if (!progData.logs) progData.logs = [];
 
       if (msg.type === 'log' && msg.text) {
+        const entry = { t: new Date().toLocaleTimeString(), text: msg.text };
+        // 实时推送日志到 SSE
+        bus.emit('log:' + taskId, entry);
         // 日志消息：追加到日志数组，最多保留 200 条
-        progData.logs.push({ t: new Date().toLocaleTimeString(), text: msg.text });
+        progData.logs.push(entry);
         if (progData.logs.length > 200) progData.logs = progData.logs.slice(-200);
       } else if (msg.total > 0) {
         // 章节进度更新
