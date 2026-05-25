@@ -74,7 +74,9 @@
           <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
         </div>
         <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
-          <el-table-column type="index" label="#" width="50" />
+          <el-table-column label="#" width="50">
+            <template #default="{row}">{{ tasks.length - tasks.findIndex(t => t.id === row.id) }}</template>
+          </el-table-column>
           <el-table-column label="状态" width="80">
             <template #default="{row}">
               <el-tag :type="{completed:'success',failed:'danger',running:'warning',pending:'info',terminated:'info'}[row.status]||'info'" size="small">
@@ -156,7 +158,7 @@ const detailCourses = computed(() => {
 
 function getTaskIndex(taskId) {
   const idx = tasks.value.findIndex(t => t.id === taskId)
-  return idx >= 0 ? idx + 1 : taskId
+  return idx >= 0 ? tasks.value.length - idx : taskId
 }
 
 function showTaskDetail(task) {
