@@ -551,8 +551,8 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .user-info { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; }
-.user-name { color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; line-height: 1.3; }
-.user-phone { color: rgba(255,255,255,0.5); font-size: 11px; line-height: 1.3; }
+.user-name { color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.3; }
+.user-phone { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.3; }
 .main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 300px; }
