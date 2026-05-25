@@ -64,12 +64,20 @@ export async function runStudy(params) {
       if (!progData.logs) progData.logs = [];
 
       if (msg.type === 'log' && msg.text) {
+        // 日志消息：只追加日志，不动 courses（防止覆盖进度）
         const entry = { t: new Date().toLocaleTimeString(), text: msg.text };
-        // 实时推送日志到 SSE
         bus.emit('log:' + taskId, entry);
-        // 日志消息：追加到日志数组，最多保留 200 条
         progData.logs.push(entry);
         if (progData.logs.length > 200) progData.logs = progData.logs.slice(-200);
+        // 如果 courses 意外被清空，从 DB 读到的原始数据恢复
+        if (!progData.courses || Object.keys(progData.courses).length === 0) {
+          if (existing[0]?.progress) {
+            try {
+              const raw = JSON.parse(existing[0].progress);
+              if (raw.courses && Object.keys(raw.courses).length > 0) progData.courses = raw.courses;
+            } catch {}
+          }
+        }
       } else if (msg.total > 0) {
         // 章节进度更新
         progData.courses[msg.courseId] = {
