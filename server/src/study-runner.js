@@ -41,11 +41,14 @@ export async function runStudy(params) {
         try { progData = JSON.parse(existing[0].progress); } catch {}
       }
       if (!progData.courses) progData.courses = {};
-      progData.courses[msg.courseId] = {
-        title: msg.courseTitle,
-        total: msg.total,
-        completed: msg.completed
-      };
+      // total > 0 时才是真正的章节进度更新，否则只刷新时间戳（心跳）
+      if (msg.total > 0) {
+        progData.courses[msg.courseId] = {
+          title: msg.courseTitle,
+          total: msg.total,
+          completed: msg.completed
+        };
+      }
       progData.timestamp = new Date().toISOString();
       await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(progData), taskId]);
     } catch (e) { /* ignore progress errors */ }

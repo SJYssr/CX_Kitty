@@ -23,5 +23,18 @@ export async function processVideo(chaoxing, course, job, jobInfo, options = {})
   logger.info(`[视频] ${job.name || job.jobid} (${type})`);
 
   const result = await chaoxing.studyVideo(course, job, jobInfo, speed, type);
+
+  // 视频完成时上报进度，让前端能实时更新
+  if (result === StudyResult.SUCCESS && typeof chaoxing._onProgress === 'function') {
+    chaoxing._onProgress({
+      type: 'chapter_progress',
+      taskId: chaoxing._taskId,
+      courseTitle: course.title,
+      courseId: course.courseId,
+      total: 0, // 不改变总进度，仅刷新时间戳
+      completed: 0
+    });
+  }
+
   return result;
 }
