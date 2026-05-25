@@ -68,7 +68,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
-const props = defineProps({ account: Object })
+const props = defineProps({ account: Object, dialogMode: Boolean })
 const emit = defineEmits(['enter'])
 
 const saving = ref(false)

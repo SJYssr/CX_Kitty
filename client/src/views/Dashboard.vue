@@ -104,6 +104,11 @@
     </main>
 
     <!-- 任务详情弹窗 -->
+    <!-- 配置弹窗 -->
+    <el-dialog v-model="configVisible" title="配置" width="420px" :close-on-click-modal="false" destroy-on-close>
+      <Config :account="account" dialog-mode @enter="onConfigDone" />
+    </el-dialog>
+
     <el-dialog v-model="detailVisible" title="任务课程详情" width="500px" :close-on-click-modal="true">
       <template v-if="detailTask">
         <div style="margin-bottom:12px">
@@ -128,9 +133,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import Config from './Config.vue'
 
 const props = defineProps({ account: Object })
-const emit = defineEmits(['logout', 'config'])
+const emit = defineEmits(['logout'])
+const configVisible = ref(false)
 
 const courses = ref([])
 const selectedCourses = ref([])
@@ -160,6 +167,12 @@ const detailCourses = computed(() => {
 function getTaskIndex(taskId) {
   const idx = tasks.value.findIndex(t => t.id === taskId)
   return idx >= 0 ? tasks.value.length - idx : taskId
+}
+
+function onConfigDone(configData) {
+  Object.assign(account.value, configData)
+  localStorage.setItem('cx_account', JSON.stringify(account.value))
+  configVisible.value = false
 }
 
 function showTaskDetail(task) {
@@ -333,6 +346,10 @@ onMounted(() => {
   loadCourses()
   loadTasks()
   fetchSystemLoad()
+  // 如果没有配置过 DeepSeek Key，自动弹出配置弹窗
+  if (!props.account?.deepseekApiKey) {
+    configVisible.value = true
+  }
   loadTimer = setInterval(fetchSystemLoad, 1000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
   axios.get('/api/study/tasks', {
