@@ -713,22 +713,38 @@ export class Chaoxing {
     const knowledgeid = jobInfo ? jobInfo.knowledgeid : (course.knowledgeid || '');
 
     try {
-      // 1. 获取题目页面
-      const workUrl = `https://mooc1.chaoxing.com/mooc-ans/api/work?courseid=${course.courseId}&clazzid=${course.clazzId}&knowledgeid=${knowledgeid}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
+      // 1. 获取题目页面（参数完全参照 Python 源码）
+      const workId = (job.jobid || '').replace('work-', '');
+      const workParams = new URLSearchParams({
+        api: '1',
+        workId,
+        jobid: job.jobid || '',
+        originJobId: job.jobid || '',
+        needRedirect: 'true',
+        skipHeader: 'true',
+        knowledgeid: knowledgeid || '',
+        ktoken: (jobInfo && jobInfo.ktoken) || '',
+        cpi: (jobInfo && jobInfo.cpi) || course.cpi || '',
+        ut: 's',
+        clazzId: course.clazzId || '',
+        courseid: course.courseId || '',
+        type: '',
+        enc: job.enc || '',
+        mooc2: '1'
+      });
 
       const workHeaders = { ...cfg.headers, Referer: 'https://mooc1.chaoxing.com/mooc-ans/' };
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
-      const resp = await this.axios.get(workUrl, { headers: workHeaders, timeout: 15000 });
+      const resp = await this.axios.get('https://mooc1.chaoxing.com/mooc-ans/api/work?' + workParams.toString(), { headers: workHeaders, timeout: 15000 });
 
       if (resp.status !== 200) {
-        logger.warn(`答题页面返回 ${resp.status}，尝试登录修复`);
+        logger.warn(`答题页面返回 ${resp.status}，尝试重新登录`);
         const loginResult = await this.login(false);
         if (!loginResult.status) {
           logger.error(`登录修复失败`);
           return StudyResult.ERROR;
         }
-        // 重试
-        const retryResp = await this.axios.get(workUrl, { headers: workHeaders, timeout: 15000 });
+        const retryResp = await this.axios.get('https://mooc1.chaoxing.com/mooc-ans/api/work?' + workParams.toString(), { headers: workHeaders, timeout: 15000 });
         if (retryResp.status !== 200) {
           logger.error(`答题页面重试仍失败: ${retryResp.status}`);
           return StudyResult.ERROR;
