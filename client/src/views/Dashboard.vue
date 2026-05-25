@@ -1,9 +1,9 @@
 <template>
   <div class="app">
     <header class="topbar">
-      <span class="brand">🐱 CX_Kitty</span>
-      <span class="user">📱 {{ account.phone }}</span>
-      <el-button size="small" @click="$emit('config')">⚙️ 配置</el-button>
+      <span class="brand">CX_Kitty</span>
+      <span class="user">{{ account.name || account.phone }}</span>
+      <el-button size="small" @click="$emit('config')">配置</el-button>
       <el-button size="small" @click="$emit('logout')">退出</el-button>
     </header>
 
@@ -12,8 +12,8 @@
         <div class="col">
           <div class="panel">
             <div class="panel-header">
-              <span>📚 课程列表</span>
-              <el-button size="small" @click="loadCourses" :loading="loadingCourses">🔄 刷新</el-button>
+              <span>课程列表</span>
+              <el-button size="small" @click="loadCourses" :loading="loadingCourses">刷新</el-button>
             </div>
             <el-table :data="courses" stripe size="small" max-height="400" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
@@ -39,7 +39,7 @@
 
           <div v-if="currentTask" class="panel" style="margin-top:12px">
             <div class="panel-header">
-              📊 任务 #{{ currentTask.id }}
+              任务 #{{ currentTask.id }}
               <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
             </div>
 
@@ -70,7 +70,7 @@
 
       <section class="panel" style="margin-top:16px">
         <div class="panel-header">
-          📋 任务记录
+          任务记录
           <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
         </div>
         <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
@@ -101,7 +101,7 @@
     </main>
 
     <!-- 任务详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="📋 任务课程详情" width="500px" :close-on-click-modal="true">
+    <el-dialog v-model="detailVisible" title="任务课程详情" width="500px" :close-on-click-modal="true">
       <template v-if="detailTask">
         <div style="margin-bottom:12px">
           任务 #{{ detailTask.id }} ·
@@ -176,7 +176,7 @@ const systemLoadClass = computed(() =>
 const startBtnText = computed(() => {
   if (starting.value) return '启动中…'
   if (runningTaskCount.value >= maxTaskCount.value) return '🚫 服务器已满'
-  return '🚀 开始刷课'
+  return '开始刷课'
 })
 
 function onSelectionChange(selection) {

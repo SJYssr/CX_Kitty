@@ -5,7 +5,7 @@
     </div>
 
     <div class="card">
-      <div class="logo">🐱</div>
+      
       <h1>CX_Kitty</h1>
       <p class="desc">超星学习通自动刷课</p>
 

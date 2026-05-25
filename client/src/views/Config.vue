@@ -1,9 +1,9 @@
 <template>
   <div class="config-page">
     <div class="card">
-      <div class="logo">🐱</div>
+      
       <h1>AI 刷课配置</h1>
-      <p class="phone">📱 {{ account.phone }}</p>
+      <p class="phone">{{ account.phone }}</p>
 
       <el-form label-position="top" size="small">
         <el-form-item label="DeepSeek API Key">
@@ -55,7 +55,7 @@
         </div>
 
         <el-button type="primary" size="large" style="width:100%;margin-top:12px" :loading="saving" @click="save">
-          {{ saving ? '保存中...' : '💾 保存配置 & 进入刷课面板' }}
+          {{ saving ? '保存中...' : '保存配置' }}
         </el-button>
       </el-form>
 
