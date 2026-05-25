@@ -20,6 +20,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
 import Login from './views/Login.vue'
 import Config from './views/Config.vue'
 import Dashboard from './views/Dashboard.vue'
@@ -27,9 +28,19 @@ import Dashboard from './views/Dashboard.vue'
 const page = ref('login')
 const account = ref(null)
 
-function onLogin(data) {
+async function onLogin(data) {
   account.value = data
   localStorage.setItem('cx_account', JSON.stringify(data))
+  // Check if account already has config saved on server
+  try {
+    const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
+    if (cfg.success && cfg.config?.deepseek_api_key) {
+      account.value = { ...data, ...cfg.config }
+      localStorage.setItem('cx_account', JSON.stringify(account.value))
+      page.value = 'dashboard'
+      return
+    }
+  } catch {}
   page.value = 'config'
 }
 

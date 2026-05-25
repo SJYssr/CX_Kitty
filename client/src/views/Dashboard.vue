@@ -186,7 +186,9 @@ function startPolling(taskId) {
 async function loadTasks() {
   loadingTasks.value = true
   try {
-    const { data } = await axios.get('/api/study/tasks')
+    const { data } = await axios.get('/api/study/tasks', {
+      params: { phone: props.account.phone }
+    })
     if (data.success) {
       tasks.value = data.tasks
       // If no currentTask or currentTask is finished, check for latest running
@@ -232,7 +234,9 @@ onMounted(() => {
   loadCourses()
   loadTasks()
   const lastNotice = localStorage.getItem('cx_last_task_notice')
-  axios.get('/api/study/tasks').then(r => {
+  axios.get('/api/study/tasks', {
+    params: { phone: props.account.phone }
+  }).then(r => {
     if (!r.data.success || !r.data.tasks?.length) return
     const latest = r.data.tasks[0]
     // Always show the latest task card

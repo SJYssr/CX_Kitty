@@ -57,15 +57,27 @@ router.post('/study/start', async (req, res) => {
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
+    // 先查/创建 account
+    let [accounts] = await pool.query(
+      'SELECT id FROM accounts WHERE phone = ?', [phone]
+    );
+    if (!accounts.length) {
+      const [insertRes] = await pool.query(
+        'INSERT INTO accounts (phone, password, deepseek_api_key, status) VALUES (?, ?, ?, ?)',
+        [phone, password, deepseekApiKey || '', 'active']
+      );
+      accounts = [{ id: insertRes.insertId }];
+    }
+
     const [result] = await pool.query(
       `INSERT INTO study_tasks (account_id, course_ids, speed, jobs, status, started_at)
        VALUES (?, ?, ?, ?, 'running', NOW())`,
-      [0, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
+      [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
     );
     const taskId = result.insertId;
 
-    const cliPath = path.resolve(__dirname, '../../src/index.js');
-    const args = ['-u', phone, '-p', password, '-s', String(speed), '-j', String(jobs)];
+    const cliPath = path.resolve(__dirname, '../../../src/index.js');
+    const args = ['-u', phone, '-p', password, '-s', String(speed), '-j', String(jobs), '--task-id', String(taskId)];
     if (courseIds?.length) args.push('-l', courseIds.join(','));
 
     // AI 配置
@@ -108,6 +120,31 @@ router.post('/study/start', async (req, res) => {
       );
     });
 
+    child.on('message', async (msg) => {
+      if (msg.type === 'chapter_progress') {
+        try {
+          const [existing] = await pool.query(
+            'SELECT progress FROM study_tasks WHERE id = ?', [taskId]
+          );
+          let progData = { courses: {}, timestamp: new Date().toISOString() };
+          if (existing[0]?.progress) {
+            try { progData = JSON.parse(existing[0].progress); } catch {}
+          }
+          if (!progData.courses) progData.courses = {};
+          progData.courses[msg.courseId] = {
+            title: msg.courseTitle,
+            total: msg.total,
+            completed: msg.completed
+          };
+          progData.timestamp = new Date().toISOString();
+          await pool.query(
+            'UPDATE study_tasks SET progress = ? WHERE id = ?',
+            [JSON.stringify(progData), taskId]
+          );
+        } catch (e) { /* ignore */ }
+      }
+    });
+
     res.json({ success: true, taskId });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -117,7 +154,7 @@ router.post('/study/start', async (req, res) => {
 router.get('/study/status/:taskId', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, status, speed, jobs, started_at, finished_at, progress, error FROM study_tasks WHERE id = ?',
+      'SELECT id, course_ids, status, speed, jobs, started_at, finished_at, progress, error FROM study_tasks WHERE id = ?',
       [req.params.taskId]
     );
     res.json({ success: true, task: rows[0] || null });
@@ -128,9 +165,15 @@ router.get('/study/status/:taskId', async (req, res) => {
 
 router.get('/study/tasks', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, speed, jobs, status, started_at, finished_at, error FROM study_tasks ORDER BY id DESC LIMIT 20'
-    );
+    const phone = req.query.phone || '';
+    let sql = 'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks';
+    let params = [];
+    if (phone) {
+      sql += ' WHERE account_id = (SELECT id FROM accounts WHERE phone = ?)';
+      params.push(phone);
+    }
+    sql += ' ORDER BY id DESC LIMIT 20';
+    const [rows] = await pool.query(sql, params);
     res.json({ success: true, tasks: rows });
   } catch (err) {
     res.json({ success: false, message: err.message });
