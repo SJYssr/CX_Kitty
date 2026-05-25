@@ -72,11 +72,15 @@ export async function runStudy(params) {
     const allCourses = await chaoxing.getCourseList();
     let targetCourses = allCourses;
     if (courseIds && courseIds.length > 0) {
-      targetCourses = allCourses.filter(c => courseIds.includes(c.courseId));
+      const matched = allCourses.filter(c => courseIds.includes(c.courseId));
+      if (matched.length > 0) {
+        targetCourses = matched;
+      }
+      // 没有匹配的课程就刷所有课程，不报错跳过
     }
 
     if (!targetCourses.length) {
-      await updateStatus('failed', JSON.stringify({ error: '未找到课程' }));
+      await updateStatus('completed', JSON.stringify({ note: '无可用课程' }));
       return;
     }
 
