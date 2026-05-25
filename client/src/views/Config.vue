@@ -145,6 +145,7 @@ onMounted(async () => {
 
 <style scoped>
 .config-page.dialog-mode { padding: 0; width: 100%; }
+.config-page.dialog-mode .card { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; border: none; padding: 0; }
 .config-form label { color: rgba(255,255,255,0.8) !important; }
 .config-form :deep(.el-input__wrapper) { background: rgba(255,255,255,0.1); box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset; }
 .config-form :deep(.el-input__inner) { color: #fff; }
