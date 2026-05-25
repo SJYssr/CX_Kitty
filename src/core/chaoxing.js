@@ -554,6 +554,12 @@ export class Chaoxing {
   async studyVideo(course, job, jobInfo, speed = 1, type = 'Video') {
     const actualSpeed = speed || this.speed;
 
+    // 如果没有 objectId，可能是外部视频链接，直接跳过
+    if (!job.objectid) {
+      logger.info(`${job.name || '视频'} 无 objectId，跳过`);
+      return StudyResult.SUCCESS;
+    }
+
     // 1. 获取视频状态
     const status = await this._getVideoStatus(job.objectid);
     if (!status) {
