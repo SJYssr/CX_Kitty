@@ -62,6 +62,7 @@
                 </div>
                 <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '连接中...' }}</div>
               </div>
+              <div class="course-summary">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</div>
             </div>
 
             <!-- 实时日志 -->
@@ -297,10 +298,22 @@ const courseProgress = computed(() => {
 })
 
 // 当前正在进行的课程（只取第一个有进度数据的课程）
+// 课程汇总：已完成课程数 / 用户选择课程数
+const courseSummary = computed(() => {
+  const pc = courseProgress.value
+  const done = pc.filter(c => c.finished).length
+  let total = 0
+  if (currentTask.value) {
+    let ids = currentTask.value.course_ids
+    if (typeof ids === 'string') { try { ids = JSON.parse(ids) } catch { ids = [] } }
+    if (Array.isArray(ids)) total = ids.length
+  }
+  return { completed: done, total: total || pc.length }
+})
+
 const currentCourse = computed(() => {
   const pc = courseProgress.value
   if (pc.length > 0) {
-    // 取完成度最高的课程（当前正在进行的）
     return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
   }
   return null
@@ -511,6 +524,7 @@ onUnmounted(() => {
 .course-detail { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; text-align: right; }
 .course-bar { margin-bottom: 2px; }
 .waiting-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); }
+.course-summary { font-size: 11px; color: rgba(255,255,255,0.5); text-align: right; margin-top: 2px; }
 
 /* 表格毛玻璃 */
 :deep(.el-table) { background: transparent; color: #fff; }
