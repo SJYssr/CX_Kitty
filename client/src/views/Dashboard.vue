@@ -83,6 +83,11 @@
           <el-table-column prop="jobs" label="并发" width="60" align="center" />
           <el-table-column prop="started_at" label="开始" min-width="140" />
           <el-table-column prop="finished_at" label="结束" min-width="140" />
+          <el-table-column label="操作" width="70" align="center">
+            <template #default="{row}">
+              <el-button v-if="row.status==='running'" size="small" type="danger" plain @click="terminateTask(row.id)">终止</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </section>
     </main>
@@ -228,6 +233,23 @@ async function start() {
   } catch (err) {
     ElMessage.error('启动失败: ' + (err.response?.data?.message || err.message))
   } finally { starting.value = false }
+}
+
+async function terminateTask(taskId) {
+  try {
+    const { data } = await axios.post('/api/study/terminate/' + taskId)
+    if (data.success) {
+      ElMessage.success('任务已终止')
+      loadTasks()
+      if (currentTask.value?.id === taskId) {
+        currentTask.value.status = 'terminated'
+      }
+    } else {
+      ElMessage.error(data.message || '终止失败')
+    }
+  } catch (err) {
+    ElMessage.error('终止失败')
+  }
 }
 
 onMounted(() => {

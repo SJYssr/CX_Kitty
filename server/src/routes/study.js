@@ -109,6 +109,20 @@ router.get('/study/status/:taskId', async (req, res) => {
   }
 });
 
+// 终止任务
+router.post('/study/terminate/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    await pool.query(
+      'UPDATE study_tasks SET status = ?, finished_at = NOW() WHERE id = ? AND status = ?',
+      ['terminated', taskId, 'running']
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
 router.get('/study/tasks', async (req, res) => {
   try {
     const phone = req.query.phone || '';
