@@ -123,12 +123,17 @@ export class JobProcessor {
 
     logger.info(`${label} (${jobs.length} 个任务)`);
 
-    // 处理每个 job
+    // 处理每个 job，跟踪结果
+    let allSuccess = true;
     for (const job of jobs) {
-      await this._processJob(job, jobInfo);
+      const result = await this._processJob(job, jobInfo);
+      if (result !== StudyResult.SUCCESS) {
+        allSuccess = false;
+        logger.warn(`${label} 任务未完成: ${job.name || job.jobid} (${result})`);
+      }
     }
 
-    return ChapterResult.SUCCESS;
+    return allSuccess ? ChapterResult.SUCCESS : ChapterResult.ERROR;
   }
 
   /**
