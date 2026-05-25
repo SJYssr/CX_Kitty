@@ -91,7 +91,7 @@
           <el-table-column prop="finished_at" label="结束" min-width="140" />
           <el-table-column label="课程" width="70" align="center">
             <template #default="{row}">
-              <el-button size="small" link type="primary" @click="showTaskDetail(row)">查看</el-button>
+              <el-button size="small" link @click="showTaskDetail(row)" class="link-btn">查看</el-button>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="70" align="center">
@@ -105,11 +105,11 @@
 
     <!-- 任务详情弹窗 -->
     <!-- 配置弹窗 -->
-    <el-dialog v-model="configVisible" title="配置" width="420px" modal-class="config-dialog">
+    <el-dialog v-model="configVisible" title="配置" width="90%" modal-class="config-dialog" style="max-width:420px">
       <Config :account="account" dialog-mode @enter="onConfigDone" />
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" title="任务课程详情" width="500px" :close-on-click-modal="true">
+    <el-dialog v-model="detailVisible" title="任务课程详情" width="90%" :close-on-click-modal="true" style="max-width:500px">
       <template v-if="detailTask">
         <div style="margin-bottom:12px">
           任务 #{{ getTaskIndex(detailTask.id) }} ·
@@ -478,6 +478,8 @@ onUnmounted(() => {
 :deep(.el-pagination) { --el-pagination-text-color: rgba(255,255,255,0.7); }
 
 /* 按钮毛玻璃 */
+.link-btn { color: rgba(100,181,246,0.9) !important; }
+.link-btn:hover { color: rgba(100,181,246,1) !important; }
 :deep(.el-button--default) { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff; }
 :deep(.el-button--default:hover) { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
 :deep(.el-button--primary) { background: rgba(64,158,255,0.6); border-color: transparent; }
