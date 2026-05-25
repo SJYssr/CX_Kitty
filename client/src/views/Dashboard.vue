@@ -98,8 +98,12 @@
           </el-table-column>
           <el-table-column prop="speed" label="倍速" width="60" align="center" />
           <el-table-column prop="jobs" label="并发" width="60" align="center" />
-          <el-table-column prop="started_at" label="开始" min-width="140" />
-          <el-table-column prop="finished_at" label="结束" min-width="140" />
+          <el-table-column label="开始" min-width="140">
+            <template #default="{row}">{{ fmtTime(row.started_at) }}</template>
+          </el-table-column>
+          <el-table-column label="结束" min-width="140">
+            <template #default="{row}">{{ fmtTime(row.finished_at) }}</template>
+          </el-table-column>
           <el-table-column label="课程" width="70" align="center">
             <template #default="{row}">
               <el-button size="small" link @click="showTaskDetail(row)" class="link-btn">查看</el-button>
@@ -208,6 +212,13 @@ const detailCourses = computed(() => {
     return { id, title: c?.title || '未知课程', teacher: c?.teacher || '' }
   })
 })
+
+function fmtTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 
 function getTaskIndex(taskId) {
   const idx = tasks.value.findIndex(t => t.id === taskId)
