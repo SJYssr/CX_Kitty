@@ -27,6 +27,7 @@
 
       <p v-if="error" class="error">{{ error }}</p>
     </div>
+    <div class="copyright">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
   </div>
 </template>
 
@@ -108,4 +109,8 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 h1 { font-size: 24px; color: #303133; margin-bottom: 4px; }
 .desc { color: #909399; font-size: 14px; margin-bottom: 32px; }
 .error { color: #f56c6c; font-size: 13px; margin-top: 12px; }
+.copyright {
+  position: fixed; bottom: 12px; left: 0; right: 0;
+  text-align: center; font-size: 11px; color: rgba(255,255,255,0.5);
+}
 </style>
