@@ -322,7 +322,7 @@ function startPolling(taskId) {
   if (timer) clearInterval(timer);
   timer = setInterval(async () => {
     try {
-      const r = await axios.get('/api/study/status/' + taskId)
+      const r = await axios.get('/api/study/status/' + taskId, { params: { phone: props.account.phone } })
       if (r.data.success && r.data.task) {
         currentTask.value = r.data.task
         if (['completed','failed'].includes(r.data.task.status)) {

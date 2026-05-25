@@ -104,10 +104,14 @@ router.post('/study/start', async (req, res) => {
 
 router.get('/study/status/:taskId', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, course_ids, status, speed, jobs, started_at, finished_at, progress, error FROM study_tasks WHERE id = ?',
-      [req.params.taskId]
-    );
+    const phone = req.query.phone || '';
+    let sql = 'SELECT id, course_ids, status, speed, jobs, started_at, finished_at, progress, error FROM study_tasks WHERE id = ?';
+    const params = [req.params.taskId];
+    if (phone) {
+      sql += ' AND account_id = (SELECT id FROM accounts WHERE phone = ?)';
+      params.push(phone);
+    }
+    const [rows] = await pool.query(sql, params);
     res.json({ success: true, task: rows[0] || null });
   } catch (err) {
     res.json({ success: false, message: err.message });
