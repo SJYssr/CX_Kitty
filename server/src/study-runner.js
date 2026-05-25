@@ -80,8 +80,9 @@ export async function runStudy(params) {
     // 筛选用户选择的课程
     let targetCourses = allCourses.filter(c => courseIds.includes(c.courseId));
     if (targetCourses.length === 0) {
-      // 一个都没匹配上 → 刷所有课程
-      targetCourses = allCourses;
+      // 一个都没匹配上 → 不刷
+      await updateStatus('completed', JSON.stringify({ note: '所选课程ID无效，请重新选择' }));
+      return;
     }
 
     for (const course of targetCourses) {
