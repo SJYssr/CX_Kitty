@@ -46,19 +46,18 @@
               </span>
             </div>
 
-            <!-- 课程进度 -->
-            <div v-if="currentCourse" class="course-progress">
+            <!-- 课程进度（任务存在就显示） -->
+            <div v-if="currentTask" class="course-progress">
               <div class="course-item">
-                <div class="course-name">{{ currentCourse.title }}</div>
+                <div class="course-name">{{ currentCourse?.title || '课程' }}</div>
                 <div class="course-bar">
                   <el-progress
-                    :percentage="currentCourse.percent"
-                    :status="currentCourse.finished ? 'success' : ''"
+                    :percentage="currentCourse?.percent || 0"
                     :stroke-width="10"
                     :show-text="false"
                   />
                 </div>
-                <div class="course-detail">{{ currentCourse.completed }}/{{ currentCourse.total }} 章节</div>
+                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待数据...' }}</div>
               </div>
             </div>
 
@@ -297,9 +296,11 @@ const courseProgress = computed(() => {
 // 当前正在进行的课程（只取第一个有进度数据的课程）
 const currentCourse = computed(() => {
   const pc = courseProgress.value
-  if (pc.length === 0) return null
-  // 取完成度最高的课程（当前正在进行的）
-  return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
+  if (pc.length > 0) {
+    // 取完成度最高的课程（当前正在进行的）
+    return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
+  }
+  return null
 })
 
 function loadCoursesFromCache() {
