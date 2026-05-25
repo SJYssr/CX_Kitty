@@ -28,9 +28,7 @@
             <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px">
               系统负载: <span :class="systemLoadClass">{{ runningTaskCount }}/{{ maxTaskCount }}</span>
             </div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:16px">
-              倍速 {{ account.defaultSpeed || 1 }}x · 并发 {{ account.defaultJobs || 1 }}
-            </div>
+
             <el-button type="primary" size="large" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" style="width:100%" @click="start">
               {{ starting ? '启动中…' : startBtnText }}
             </el-button>
@@ -419,8 +417,8 @@ async function start() {
       phone: props.account.phone,
       password: props.account.password,
       courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
-      speed: props.account.defaultSpeed || 1,
-      jobs: props.account.defaultJobs || 1,
+      speed: 1,
+      jobs: 1,
       deepseekApiKey: props.account.deepseekApiKey || '',
       deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
       enableAnswering: props.account.enableAnswering !== false,

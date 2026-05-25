@@ -114,8 +114,8 @@ export async function runStudy(params) {
     const jar = new CookieJar();
     const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
     const chaoxing = new Chaoxing({ phone, password }, tiku, {
-      speed: speed || 1,
-      jobs: jobs || 3,
+      speed: 1,
+      jobs: 1,
       _standaloneSession: standaloneSession,
       _globalThrottle: GLOBAL_THROTTLE
     });

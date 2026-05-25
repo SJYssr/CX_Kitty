@@ -45,7 +45,7 @@ router.post('/courses', async (req, res) => {
 router.post('/study/start', async (req, res) => {
   try {
     const {
-      phone, password, courseIds, speed = 1, jobs = 3,
+      phone, password, courseIds,
       deepseekApiKey = '', autoSubmit = false, enableAnswering = true
     } = req.body;
 
@@ -72,8 +72,8 @@ router.post('/study/start', async (req, res) => {
     // 创建新任务记录
     const [result] = await pool.query(
       `INSERT INTO study_tasks (account_id, course_ids, speed, jobs, status, started_at)
-       VALUES (?, ?, ?, ?, 'running', NOW())`,
-      [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
+       VALUES (?, ?, 1, 1, 'running', NOW())`,
+      [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null]
     );
 
     // 每个用户只保留最新 2 条记录
