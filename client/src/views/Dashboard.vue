@@ -49,7 +49,7 @@
             <!-- 课程进度（任务存在就显示） -->
             <div v-if="currentTask" class="course-progress">
               <div class="course-item">
-                <div class="course-name">{{ currentCourse?.title || '课程' }}</div>
+                <div class="course-name">{{ currentCourse?.title || taskCourseName }}</div>
                 <div class="course-bar">
                   <el-progress
                     v-if="currentCourse"
@@ -60,7 +60,7 @@
                   />
                   <div v-else class="waiting-bar"></div>
                 </div>
-                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '连接中...' }}</div>
+                <div class="course-detail">{{ currentCourse ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '0/0 章节' }}</div>
               </div>
               <div class="course-summary">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</div>
             </div>
@@ -317,6 +317,17 @@ const currentCourse = computed(() => {
     return [...pc].sort((a, b) => (b.completed || 0) - (a.completed || 0))[0]
   }
   return null
+})
+
+const taskCourseName = computed(() => {
+  if (!currentTask.value) return ''
+  let ids = currentTask.value.course_ids
+  if (typeof ids === 'string') { try { ids = JSON.parse(ids) } catch { ids = [] } }
+  if (Array.isArray(ids) && ids.length && courses.value.length) {
+    const c = courses.value.find(c => c.courseId === ids[0])
+    if (c) return c.title
+  }
+  return '课程'
 })
 
 function loadCoursesFromCache() {
