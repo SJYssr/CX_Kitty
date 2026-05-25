@@ -11,7 +11,7 @@
     <div class="card">
       
       <h1>CX_Kitty</h1>
-      <p class="desc">超星学习通自动刷课</p>
+      <p class="desc">超星自助刷课平台</p>
 
       <div v-if="taskCount >= 100" class="full-warning">
         ⚠️ 服务器已满({{ taskCount }}/{{ maxTasks }})，请稍后再试
