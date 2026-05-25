@@ -18,7 +18,7 @@
               <span>课程列表</span>
               <el-button size="small" @click="loadCourses(true)" :loading="loadingCourses">刷新</el-button>
             </div>
-            <el-table :data="courses" stripe size="small" style="width:100%;height:100%" @selection-change="onSelectionChange">
+            <el-table :data="courses" stripe size="small" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
               <el-table-column prop="title" label="课程" min-width="180" show-overflow-tooltip />
               <el-table-column prop="teacher" label="教师" width="100" />
@@ -560,9 +560,7 @@ onUnmounted(() => {
 .main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 300px; display:flex; flex-direction:column; }
-.col > .panel { flex: 1; display:flex; flex-direction:column; min-height:0; }
-.col > .panel .el-table { flex:1; min-height:0; }
-.col > .panel .el-table :deep(.el-table__body-wrapper) { flex:1; }
+.col > .panel { flex:1; }
 .panel {
   background: rgba(255,255,255,0.12);
   backdrop-filter: blur(16px);
