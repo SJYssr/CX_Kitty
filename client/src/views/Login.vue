@@ -145,11 +145,11 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 }
 
 .notice-marquee {
-  position: fixed; top: 32px; left: 0; right: 0;
+  position: fixed; top: 28px; left: 0; right: 0;
   background: rgba(0,0,0,0.35); color: #e6a23c;
   text-align: center;
-  padding: 5px 0;
-  font-size: 12px;
+  padding: 6px 0;
+  font-size: 14px;
   z-index: 100;
   backdrop-filter: blur(8px);
   overflow: hidden;
@@ -157,7 +157,7 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
 }
 .notice-marquee span {
   display: inline-block;
-  animation: marquee 18s linear infinite;
+  animation: marquee 20s linear infinite;
 }
 @keyframes marquee {
   0% { transform: translateX(100%); }
