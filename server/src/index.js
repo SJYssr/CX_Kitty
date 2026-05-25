@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import pool from './db.js';
 import accountRoutes from './routes/account.js';
 import studyRoutes from './routes/study.js';
 
@@ -63,6 +64,15 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ success: false, message: err.message || '服务器错误' });
 });
+
+// 启动时清理残留的 running 任务（上次部署留下的）
+pool.query(
+  "UPDATE study_tasks SET status = 'terminated', finished_at = NOW() WHERE status = 'running'"
+).then(r => {
+  if (r[0]?.affectedRows > 0) {
+    console.log(`  清理了 ${r[0].affectedRows} 个残留的 running 任务`);
+  }
+}).catch(() => {});
 
 app.listen(PORT, () => {
   console.log(`🐱 CX_Kitty Server → http://localhost:${PORT}`);
