@@ -148,7 +148,7 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
 .notice-marquee {
   position: fixed; top: 28px; left: 0; right: 0;
   background: rgba(0,0,0,0.35); color: #e6a23c;
-  text-align: center;
+  text-align: left;
   padding: 6px 0;
   font-size: 14px;
   z-index: 100;
