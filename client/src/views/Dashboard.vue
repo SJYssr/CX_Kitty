@@ -174,7 +174,9 @@ async function loadHistoryLogs(taskId) {
     if (data.success) {
       historyLogs.value = data.logs || []
     }
-  } catch {}
+  } catch (e) {
+    console.warn('loadHistoryLogs 失败:', e?.message || e)
+  }
 }
 
 const taskLogs = computed(() => {

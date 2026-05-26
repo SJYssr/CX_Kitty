@@ -32,6 +32,8 @@ export async function runStudy(params) {
   const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId, pool } = params;
 
   let _terminated = false;
+  // 写进度锁 — 防止并发 writeProgress 互相覆盖
+  let _progressLock = Promise.resolve();
 
   const updateStatus = async (status, progress) => {
     try {
@@ -50,12 +52,30 @@ export async function runStudy(params) {
     } catch (e) { console.warn('updateStatus 失败: ' + (e.message || e)); }
   };
 
+  // 串行化进度写入，防止并发覆盖
+  const withProgressLock = async (fn) => {
+    const prev = _progressLock;
+    let release;
+    _progressLock = new Promise(r => { release = r; });
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  };
+
   // 检查任务是否被终止（新任务替换了旧任务时）
   const checkTerminated = async () => {
     if (_terminated) return true;
     try {
       const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
-      return rows.length > 0 && rows[0].status === 'terminated';
+      if (rows.length > 0 && rows[0].status === 'terminated') {
+        _terminated = true;
+        abortController.abort(); // 中止正在跑的 HTTP 请求
+        return true;
+      }
+      return false;
     } catch (e) { console.warn('checkTerminated 失败: ' + (e.message || e)); return false; }
   };
 
@@ -75,41 +95,44 @@ export async function runStudy(params) {
   };
 
   const writeProgress = async (msg) => {
-    try {
-      const p = await readProgress();
-      p.timestamp = new Date().toISOString();
+    // 串行化写入：通过锁保证每次 read-modify-write 是原子的
+    await withProgressLock(async () => {
+      try {
+        const p = await readProgress();
+        p.timestamp = new Date().toISOString();
 
-      if (msg.type === 'log' && msg.text) {
-        if (_terminated) return;
-        const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
-        bus.emit('log:' + taskId, entry);
-        // 写入独立 task_logs 表
-        await pool.query(
-          'INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)',
-          [taskId, entry.t, entry.text]
-        );
-        // 同时保留在 progress.logs 中（前端旧版兼容）
-        if (!Array.isArray(p.logs)) p.logs = [];
-        p.logs.push(entry);
-        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
-        return;
-      }
-
-      if (msg.total > 0) {
-        if (!p.courses) p.courses = {};
-        const cid = String(msg.courseId).replace(/[^a-zA-Z0-9_]/g, '');
-        if (cid) {
-          p.courses[cid] = { title: msg.courseTitle, total: msg.total, completed: msg.completed };
+        if (msg.type === 'log' && msg.text) {
+          if (_terminated) return;
+          const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
+          bus.emit('log:' + taskId, entry);
+          // 写入独立 task_logs 表
+          await pool.query(
+            'INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)',
+            [taskId, entry.t, entry.text]
+          );
+          // 同时保留在 progress.logs 中（前端旧版兼容）
+          if (!Array.isArray(p.logs)) p.logs = [];
+          p.logs.push(entry);
+          await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+          return;
         }
-        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
-        return;
-      }
 
-      // 心跳：只更新时间戳
-      await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
-    } catch (e) {
-      console.warn('writeProgress 失败: ' + e.message);
-    }
+        if (msg.total > 0) {
+          if (!p.courses) p.courses = {};
+          const cid = String(msg.courseId).replace(/[^a-zA-Z0-9_]/g, '');
+          if (cid) {
+            p.courses[cid] = { title: msg.courseTitle, total: msg.total, completed: msg.completed };
+          }
+          await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+          return;
+        }
+
+        // 心跳：只更新时间戳
+        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+      } catch (e) {
+        console.warn('writeProgress 失败: ' + e.message);
+      }
+    });
   };
 
   try {
@@ -121,7 +144,8 @@ export async function runStudy(params) {
 
     // 每个任务创建独立的 session，避免串号
     const jar = new CookieJar();
-    const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const abortController = new AbortController();
+    const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000, signal: abortController.signal }));
     const chaoxing = new Chaoxing({ phone, password }, tiku, {
       speed: 1,
       jobs: 1,
