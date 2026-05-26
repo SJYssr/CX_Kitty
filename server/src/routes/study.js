@@ -2,6 +2,8 @@ import { Router } from 'express';
 import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
 import bus from '../log-bus.js';
+import { generateCode, verifyCode } from '../verify-code.js';
+import { sendEmail } from '../../src/notify/email.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -265,6 +267,56 @@ router.get('/study/logs-db/:taskId', async (req, res) => {
     res.json({ success: true, logs: [] });
   } catch (err) {
     res.json({ success: false, message: err.message, logs: [] });
+  }
+});
+
+// ===================== 邮箱注册 =====================
+
+/** 发送邮箱验证码 */
+router.post('/send-verify-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.json({ success: false, message: '请输入邮箱' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.json({ success: false, message: '邮箱格式不正确' });
+    }
+
+    const code = generateCode(email);
+    const ok = await sendEmail(email, 'CX_Kitty 邮箱验证',
+      `<h3>CX_Kitty 邮箱验证</h3><p>您的验证码是：<b style="font-size:24px;color:#409EFF">${code}</b></p><p>有效期为 5 分钟，请勿泄露。</p>`
+    );
+
+    if (!ok) return res.json({ success: false, message: '验证码发送失败，请检查邮箱是否正确' });
+    res.json({ success: true, message: '验证码已发送' });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
+/** 注册（验证码校验 + 保存邮箱） */
+router.post('/register', async (req, res) => {
+  try {
+    const { phone, email, code } = req.body;
+    if (!phone || !email || !code) {
+      return res.json({ success: false, message: '请填写完整信息' });
+    }
+
+    // 验证码校验
+    if (!verifyCode(email, code)) {
+      return res.json({ success: false, message: '验证码错误或已过期' });
+    }
+
+    // 更新或插入账号邮箱
+    const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
+    if (existing.length > 0) {
+      await pool.query('UPDATE accounts SET notify_email = ? WHERE phone = ?', [email, phone]);
+    } else {
+      return res.json({ success: false, message: '请先通过超星账号登录后再绑定邮箱' });
+    }
+
+    res.json({ success: true, message: '注册成功' });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
   }
 });
 

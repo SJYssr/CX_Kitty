@@ -17,7 +17,14 @@
         ⚠️ 服务器已满({{ taskCount }}/{{ maxTasks }})，请稍后再试
       </div>
 
-      <el-form ref="formRef" :model="form" :rules="rules" @keyup.enter="handleLogin">
+      <!-- 登录 / 注册 切换 -->
+      <div class="tab-bar">
+        <span :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</span>
+        <span :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</span>
+      </div>
+
+      <!-- 登录表单 -->
+      <el-form v-if="mode === 'login'" ref="formRef" :model="form" :rules="rules" @keyup.enter="handleLogin">
         <el-input v-model="form.phone" placeholder="学习通手机号" size="large" style="margin-bottom: 16px;">
           <template #prefix><el-icon><Phone /></el-icon></template>
         </el-input>
@@ -26,6 +33,30 @@
         </el-input>
         <el-button type="primary" size="large" :loading="loading" :disabled="taskCount >= 100" style="width: 100%" @click="handleLogin">
           {{ loading ? '登录中...' : taskCount >= maxTasks ? '服务器已满' : '登 录' }}
+        </el-button>
+      </el-form>
+
+      <!-- 注册表单 -->
+      <el-form v-else ref="registerRef" :model="registerForm" :rules="registerRules" @keyup.enter="handleRegister">
+        <el-input v-model="registerForm.phone" placeholder="学习通手机号" size="large" style="margin-bottom: 16px;">
+          <template #prefix><el-icon><Phone /></el-icon></template>
+        </el-input>
+        <el-input v-model="registerForm.password" type="password" placeholder="学习通密码" size="large" show-password style="margin-bottom: 16px;">
+          <template #prefix><el-icon><Lock /></el-icon></template>
+        </el-input>
+        <el-input v-model="registerForm.email" placeholder="邮箱" size="large" style="margin-bottom: 16px;">
+          <template #prefix><el-icon><Message /></el-icon></template>
+        </el-input>
+        <div style="display:flex;gap:8px;margin-bottom: 20px;">
+          <el-input v-model="registerForm.code" placeholder="验证码" size="large" style="flex:1">
+            <template #prefix><el-icon><Key /></el-icon></template>
+          </el-input>
+          <el-button size="large" style="flex-shrink:0;width:120px" :disabled="codeSending || codeCountdown > 0" @click="sendCode">
+            {{ codeCountdown > 0 ? codeCountdown + 's' : codeSending ? '发送中...' : '获取验证码' }}
+          </el-button>
+        </div>
+        <el-button type="primary" size="large" :loading="registering" style="width: 100%" @click="handleRegister">
+          {{ registering ? '注册中...' : '注 册' }}
         </el-button>
       </el-form>
 
@@ -41,20 +72,40 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Phone, Lock } from '@element-plus/icons-vue'
+import { Phone, Lock, Message, Key } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const emit = defineEmits(['login'])
 const formRef = ref(null)
+const registerRef = ref(null)
 const loading = ref(false)
 const taskCount = ref(0)
 const maxTasks = ref(100)
 let countTimer = null
 
+// 登录表单
 const form = ref({ phone: '', password: '' })
 const rules = {
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
+
+// 注册表单
+const mode = ref('login')
+const registering = ref(false)
+const codeSending = ref(false)
+const codeCountdown = ref(0)
+let codeTimer = null
+
+const registerForm = ref({ phone: '', password: '', email: '', code: '' })
+const registerRules = {
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
 
 async function fetchTaskCount() {
@@ -82,8 +133,50 @@ async function handleLogin() {
   finally { loading.value = false }
 }
 
+async function sendCode() {
+  if (!registerForm.value.email) { ElMessage.warning('请先填写邮箱'); return }
+  codeSending.value = true
+  try {
+    const { data } = await axios.post('/api/send-verify-code', { email: registerForm.value.email })
+    if (!data.success) { ElMessage.error(data.message); return }
+    ElMessage.success('验证码已发送')
+    codeCountdown.value = 60
+    if (codeTimer) clearInterval(codeTimer)
+    codeTimer = setInterval(() => {
+      codeCountdown.value--
+      if (codeCountdown.value <= 0) {
+        clearInterval(codeTimer)
+        codeTimer = null
+      }
+    }, 1000)
+  } catch { ElMessage.error('发送失败') }
+  finally { codeSending.value = false }
+}
+
+async function handleRegister() {
+  const valid = await registerRef.value.validate().catch(() => false)
+  if (!valid) return
+  registering.value = true
+  try {
+    const { data } = await axios.post('/api/register', {
+      phone: registerForm.value.phone,
+      email: registerForm.value.email,
+      code: registerForm.value.code
+    })
+    if (!data.success) { ElMessage.error(data.message); return }
+    ElMessage.success('注册成功！请登录')
+    // 切回登录并回填手机号
+    form.value.phone = registerForm.value.phone
+    mode.value = 'login'
+  } catch { ElMessage.error('注册失败') }
+  finally { registering.value = false }
+}
+
 onMounted(() => { fetchTaskCount(); countTimer = setInterval(fetchTaskCount, 1000) })
-onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
+onUnmounted(() => {
+  if (countTimer) clearInterval(countTimer)
+  if (codeTimer) clearInterval(codeTimer)
+})
 </script>
 
 <style scoped>
@@ -145,6 +238,19 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
   line-height: 1.6;
 }
 
+.tab-bar {
+  display: flex; gap: 0; margin-bottom: 24px; border-radius: 8px;
+  overflow: hidden; border: 1px solid rgba(255,255,255,0.2);
+}
+.tab-bar span {
+  flex: 1; padding: 8px 0; cursor: pointer; font-size: 14px;
+  color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05);
+  transition: all 0.2s; user-select: none;
+}
+.tab-bar span.active {
+  color: #fff; background: rgba(255,255,255,0.15);
+  font-weight: 600;
+}
 .notice-marquee {
   position: fixed; top: 28px; left: 0; right: 0;
   background: rgba(0,0,0,0.35); color: #e6a23c;
