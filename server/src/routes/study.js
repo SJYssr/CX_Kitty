@@ -5,6 +5,7 @@ import bus from '../log-bus.js';
 import { generateCode, verifyCode } from '../verify-code.js';
 import { sendVerifyCode } from '../../../src/notify/email.js';
 import { generateCaptcha, verifyCaptcha } from '../captcha.js';
+import { sanitizeError } from '../error.js';
 import bcrypt from 'bcryptjs';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';

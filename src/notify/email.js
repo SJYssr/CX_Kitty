@@ -17,15 +17,17 @@ function getTransporter() {
     console.warn('[Email] SMTP 未配置（缺少 SMTP_HOST），邮件功能不可用');
     return null;
   }
-
+  const port = parseInt(process.env.SMTP_PORT || '465');
+  const isSecure = port !== 587;
   transporter = nodemailer.createTransport({
     host,
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_PORT !== '587',
+    port,
+    secure: isSecure,
     auth: {
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || ''
-    }
+    },
+    tls: { rejectUnauthorized: false }
   });
 
   return transporter;
