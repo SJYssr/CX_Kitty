@@ -59,48 +59,51 @@ export async function runStudy(params) {
     } catch { return false; }
   };
 
+  /** 读取当前进度 (JS 操作避免复杂 JSON_SET) */
+  const readProgress = async () => {
+    try {
+      const [rows] = await pool.query('SELECT progress FROM study_tasks WHERE id = ?', [taskId]);
+      if (rows.length && rows[0].progress) {
+        return typeof rows[0].progress === 'string'
+          ? JSON.parse(rows[0].progress)
+          : rows[0].progress;
+      }
+    } catch {
+      /* 读进度失败就返回空对象 */
+    }
+    return {};
+  };
+
   const writeProgress = async (msg) => {
     try {
-      if (msg.type === 'log' && msg.text) {
-        // 任务被终止后不再发射事件和写DB
-        if (_terminated) return;
+      const p = await readProgress();
+      p.timestamp = new Date().toISOString();
 
+      if (msg.type === 'log' && msg.text) {
+        if (_terminated) return;
         const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
         bus.emit('log:' + taskId, entry);
-        // 只追加日志，不碰 courses - 使用 JSON_SET 直接操作
-        await pool.query(
-          `UPDATE study_tasks SET progress = JSON_SET(
-            COALESCE(progress, '{}'),
-            '$.timestamp', ?,
-            '$.logs', COALESCE(JSON_ARRAY_APPEND(JSON_EXTRACT(progress, '$.logs'), '$', CAST(? AS JSON)), JSON_ARRAY(CAST(? AS JSON)))
-          ) WHERE id = ?`,
-          [new Date().toISOString(), JSON.stringify(entry), JSON.stringify(entry), taskId]
-        ).catch(() => {});
+        if (!Array.isArray(p.logs)) p.logs = [];
+        p.logs.push(entry);
+        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
         return;
       }
 
       if (msg.total > 0) {
-        // 章节进度：只更新 courses，不碰 logs
+        if (!p.courses) p.courses = {};
         const cid = String(msg.courseId).replace(/[^a-zA-Z0-9_]/g, '');
-        if (!cid) return;
-        const courseData = JSON.stringify({ title: msg.courseTitle, total: msg.total, completed: msg.completed });
-        await pool.query(
-          `UPDATE study_tasks SET progress = JSON_SET(
-            JSON_SET(COALESCE(progress, '{}'), '$.courses', COALESCE(JSON_EXTRACT(progress, '$.courses'), CAST('{}' AS JSON))),
-            '$.timestamp', ?,
-            '$.courses."${cid}"', CAST(? AS JSON)
-          ) WHERE id = ?`,
-          [new Date().toISOString(), courseData, taskId]
-        ).catch(() => {});
+        if (cid) {
+          p.courses[cid] = { title: msg.courseTitle, total: msg.total, completed: msg.completed };
+        }
+        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
         return;
       }
 
       // 心跳：只更新时间戳
-      await pool.query(
-        `UPDATE study_tasks SET progress = JSON_SET(COALESCE(progress, '{}'), '$.timestamp', ?) WHERE id = ?`,
-        [new Date().toISOString(), taskId]
-      ).catch(() => {});
-    } catch (e) { /* ignore */ }
+      await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+    } catch (e) {
+      console.warn('writeProgress 失败: ' + e.message);
+    }
   };
 
   try {
