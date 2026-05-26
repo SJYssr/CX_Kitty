@@ -12,7 +12,7 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 /**
- * 处理视频任务
+ * 处理视频任务 (参照 Python 版逻辑: 到达 duration 后发最后一次心跳即退出)
  * @param {import('./chaoxing.js').Chaoxing} cx — Chaoxing 实例
  * @param {Object} course
  * @param {Object} job
@@ -28,14 +28,8 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     return StudyResult.SUCCESS;
   }
 
-  // 加载时从 cx 获取终止检查函数
   const _isTerminated = () => cx.__terminated === true || cx._abortController?.signal?.aborted === true;
-
-  // 检查是否被终止
-  if (_isTerminated()) {
-    logger.info(`${job.name || '视频'} 任务已终止，跳过`);
-    return StudyResult.SUCCESS;
-  }
+  if (_isTerminated()) return StudyResult.SUCCESS;
 
   const status = await _getVideoStatus(cx, job.objectid);
   if (!status) {
@@ -45,75 +39,55 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
 
   const { dtoken, duration } = status;
   const jobName = job.name || '视频';
+  if (duration <= 0) { logger.warn(`视频时长为0: ${jobName}`); return StudyResult.SUCCESS; }
 
-  if (duration <= 0) {
-    logger.warn(`视频时长为0: ${jobName}`);
-    return StudyResult.SUCCESS;
-  }
-
+  // 初始完整进度检查
   const initResult = await videoProgressLog(cx, course, job, jobInfo, dtoken, duration, duration, type, 4);
-  if (initResult.passed) {
-    logger.info(`${jobName} 已完成`);
-    return StudyResult.SUCCESS;
-  }
+  if (initResult.passed) { logger.info(`${jobName} 已完成`); return StudyResult.SUCCESS; }
 
+  // download 类型处理
   if (!dtoken) {
-    const dlInit = await videoProgressLog(cx, course, job, jobInfo, '', duration, duration, type, 4);
-    if (dlInit.passed) { logger.info(`${jobName} 下载视频心跳完成`); return StudyResult.SUCCESS; }
-    const completed = await _completeDownloadJob(cx, course, job, jobInfo, duration, type);
-    if (completed) { logger.info(`${jobName} 下载视频标记完成`); return StudyResult.SUCCESS; }
+    if ((await videoProgressLog(cx, course, job, jobInfo, '', duration, duration, type, 4)).passed) return StudyResult.SUCCESS;
+    if (await _completeDownloadJob(cx, course, job, jobInfo, duration, type)) return StudyResult.SUCCESS;
     logger.info(`${jobName} 下载视频无法完成，跳过`);
     return StudyResult.SUCCESS;
   }
 
-  const startPlay = Math.floor((job.playTime || 0) / 1000);
-  let playTime = startPlay;
-  let lastLogTime = 0;
-  const waitTime = randomInt(30, 90);
-  let lastIter = Date.now();
-  let forbiddenCount = 0;
-  const maxForbidden = 2;
+  // === 主循环 (参照 Python 版) ===
+  let playTime = Math.floor((job.playTime || 0) / 1000);
+  let isFinished = false;
   let currentDtoken = dtoken;
 
-  while (true) {
-    // 每次循环检查是否被终止
-    if (_isTerminated()) {
-      logger.warn(`${jobName} 任务已终止，退出视频循环`);
-      return StudyResult.SUCCESS;
+  logger.info(`${jobName} 开始, 总时长: ${duration}秒`);
+
+  while (!isFinished) {
+    if (_isTerminated()) return StudyResult.SUCCESS;
+
+    const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
+    if (result.status === -1) return StudyResult.SUCCESS;
+    if (result.status === 403) {
+      logger.warn(`${jobName} 403, 跳过`); return StudyResult.FORBIDDEN;
+    }
+    if (result.passed) { logger.info(`${jobName} 完成`); return StudyResult.SUCCESS; }
+
+    // 到达末尾: 标记 finished, 下一轮循环退出
+    if (playTime >= duration) {
+      isFinished = true;
+      await sleep(3000);
+      continue;
     }
 
-    if ((playTime - lastLogTime >= waitTime) || playTime >= duration) {
-      const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
-      // 任务被中止
-      if (result.status === -1) {
-        logger.warn(`${jobName} 任务已中止，退出视频循环`);
-        return StudyResult.SUCCESS;
-      }
-      if (result.status === 403) {
-        forbiddenCount++;
-        if (forbiddenCount > maxForbidden) { logger.warn(`${jobName} 403 恢复失败`); return StudyResult.FORBIDDEN; }
-        const refreshed = await _recoverAfterForbidden(cx, job, type);
-        if (refreshed) currentDtoken = refreshed.dtoken;
-        await sleep(3000); lastIter = Date.now(); lastLogTime = playTime; continue;
-      }
-      forbiddenCount = 0; lastLogTime = playTime;
-      if (result.passed) {
-        if (process.stdout.clearLine) process.stdout.clearLine(0);
-        logger.info(`${jobName} 完成`);
-        return StudyResult.SUCCESS;
-      }
-    }
-    const dt = (Date.now() - lastIter) * actualSpeed / 1000;
-    playTime = Math.min(duration, playTime + dt);
-    lastIter = Date.now();
-
-    const progressStr = renderVideoProgress(jobName, Math.floor(playTime), duration);
-    if (process.stdout.clearLine) process.stdout.clearLine(0);
-    process.stdout.write(`\r${progressStr}`);
-
-    if (playTime >= duration) { await sleep(3000); playTime = duration; }
-    else { await sleep(1000); }
+    // 未到达末尾: 随机等待后推进时间
+    const waitTime = randomInt(30, 90);
+    const step = Math.min(waitTime * actualSpeed, duration - playTime);
+    renderVideoProgress(jobName, Math.floor(playTime), duration);
+    logger.info(`${jobName} 进度: ${Math.floor(playTime)}/${duration}秒`);
+    await sleep(waitTime * 1000);
+    playTime += step;
   }
+
+  logger.info(`${jobName} 处理完毕`);
+  return StudyResult.SUCCESS;
 }
 
 async function _getVideoStatus(cx, objectId) {
@@ -133,6 +107,7 @@ async function _getVideoStatus(cx, objectId) {
       }
       logger.warn(`视频状态异常: ${resp.status} ${typeof resp.data === 'string' ? resp.data.slice(0, 100) : JSON.stringify(resp.data).slice(0, 100)}`);
     } catch (e) {
+      if (e.code === 'ERR_CANCELED' || e.code === 'ERR_ABORTED') return null;
       logger.warn(`视频状态请求异常: ${e.message}`);
     }
   }
@@ -161,9 +136,8 @@ export async function videoProgressLog(cx, course, job, jobInfo, dtoken, duratio
       const resp = await cx.axios.get(baseUrl, { params, headers: cfg.videoHeaders, timeout: 15000 });
       if (resp.status === 200) return { passed: resp.data && resp.data.isPassed === true, status: 200 };
     } catch (err) {
-      // 任务被中止时提前退出
       if (err.code === 'ERR_CANCELED' || err.code === 'ERR_ABORTED' || err.name === 'CanceledError') {
-        return { passed: false, status: -1 }; // status=-1 表示中止
+        return { passed: false, status: -1 };
       }
       if (err.response && err.response.status === 403) continue;
       return { passed: false, status: err.response ? err.response.status : 0 };
@@ -190,28 +164,4 @@ async function _completeDownloadJob(cx, course, job, jobInfo, duration, type = '
     return result.passed;
   } catch (e) { logger.warn(`下载视频心跳失败: ${e.message}`); }
   return false;
-}
-
-async function _recoverAfterForbidden(cx, job, type) {
-  logger.warn(`尝试恢复 403 会话: ${job.jobid}`);
-  try {
-    const SessionManager = (await import('./session.js')).SessionManager;
-    SessionManager.updateCookies();
-    if (cx.session) {
-      cx.axios = SessionManager.getSession();
-    } else {
-      // 独立 session 模式下重新创建
-    }
-  } catch {}
-  try {
-    return await _refreshVideoStatus(cx, job, type);
-  } catch { return null; }
-}
-
-async function _refreshVideoStatus(cx, job, type) {
-  if (job.objectid) {
-    const status = await _getVideoStatus(cx, job.objectid);
-    if (status) return status;
-  }
-  return null;
 }
