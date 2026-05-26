@@ -1065,24 +1065,12 @@ export class Chaoxing {
       // 5. 提交
       formData.pyFlag = pyFlag;
 
-      const submitUrl = `https://mooc1.chaoxing.com/mooc-ans/work/addStudentWorkNewWeb`
-        + `?_classId=${formData.classId}`
-        + `&courseid=${formData.courseId}`
-        + `&token=${formData.enc_work}`
-        + `&totalQuestionNum=${encodeURIComponent(formData.totalQuestionNum)}`
-        + `&workid=${formData.workRelationId}`
-        + `&cpi=${formData.cpi}`
-        + `&jobid=${formData.jobid}`
-        + `&knowledgeid=${formData.knowledgeid}`
-        + `&testmooc2=1`
-        + `&originJobId=${formData.jobid}`;
-
       logger.info(`提交中: pyFlag=${pyFlag}, 题目数=${totalQuestions}`);
 
       const params = new URLSearchParams(formData);
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const submitResp = await this.axios.post(
-        submitUrl,
+        'https://mooc1.chaoxing.com/mooc-ans/work/addStudentWorkNew',
         params.toString(),
         {
           headers: {
