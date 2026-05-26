@@ -241,8 +241,10 @@ function getTaskIndex(taskId) {
 
 function onConfigDone(configData) {
   Object.assign(props.account, configData)
-  const { password, ...safe } = props.account
-  localStorage.setItem('cx_account', JSON.stringify(safe))
+  localStorage.setItem('cx_account', JSON.stringify({
+    ...props.account,
+    _expiresAt: Date.now() + 30 * 60 * 1000
+  }))
   configVisible.value = false
 }
 
