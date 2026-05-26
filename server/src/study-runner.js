@@ -105,7 +105,7 @@ export async function runStudy(params) {
 
   try {
     const tiku = (params.enableAnswering !== false) ? (() => {
-      const t = new TikuDeepSeek(deepseekApiKey || '', deepseekModel || 'deepseek-v4-pro');
+      const t = new TikuDeepSeek(deepseekApiKey || '', deepseekModel);
       t.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
       return t;
     })() : null;
