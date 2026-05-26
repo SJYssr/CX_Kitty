@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="card">
       <h1>注册</h1>
-      <p class="desc">绑定邮箱，接收任务通知</p>
+
 
       <el-form ref="registerRef" :model="form" :rules="rules" @keyup.enter="handleRegister">
         <el-input v-model="form.phone" placeholder="学习通手机号" size="large" style="margin-bottom: 16px;">
