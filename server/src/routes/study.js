@@ -47,19 +47,19 @@ router.post('/study/start', async (req, res) => {
     );
 
     // 每个用户只保留最新 2 条记录
-    const [toKeep] = await pool.query(
+    const [rows] = await pool.query(
       'SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2',
       [accounts[0].id]
     );
-    if (toKeep.length > 0) {
-      // 先删对应的 task_logs
+    if (rows.length === 2) {
+      const cutoffId = rows[1].id;
       await pool.query(
-        'DELETE FROM task_logs WHERE task_id IN (SELECT id FROM study_tasks WHERE account_id = ? AND id NOT IN (?))',
-        [accounts[0].id, toKeep.map(r => r.id)]
+        'DELETE FROM task_logs WHERE task_id IN (SELECT id FROM study_tasks WHERE account_id = ? AND id < ?)',
+        [accounts[0].id, cutoffId]
       );
       await pool.query(
-        'DELETE FROM study_tasks WHERE account_id = ? AND id NOT IN (?)',
-        [accounts[0].id, toKeep.map(r => r.id)]
+        'DELETE FROM study_tasks WHERE account_id = ? AND id < ?',
+        [accounts[0].id, cutoffId]
       );
     }
     const taskId = result.insertId;
@@ -135,18 +135,19 @@ router.get('/study/logs/:taskId', async (req, res) => {
 
   // 先验证身份，再建立 SSE 连接
   const phone = req.query.phone;
-  if (phone) {
-    try {
-      const [rows] = await pool.query(
-        'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
-        [taskId, phone]
-      );
-      if (!rows.length) {
-        return res.status(403).json({ success: false, message: 'forbidden' });
-      }
-    } catch {
-      return res.status(500).json({ success: false, message: 'auth error' });
+  if (!phone) {
+    return res.status(401).json({ success: false, message: 'unauthorized' });
+  }
+  try {
+    const [rows] = await pool.query(
+      'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
+      [taskId, phone]
+    );
+    if (!rows.length) {
+      return res.status(403).json({ success: false, message: 'forbidden' });
     }
+  } catch {
+    return res.status(500).json({ success: false, message: 'auth error' });
   }
 
   res.writeHead(200, {

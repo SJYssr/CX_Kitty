@@ -1,6 +1,8 @@
 -- CX_Kitty 数据库初始化脚本
 -- 用于 Docker 首次启动时建表
 
+SET time_zone = '+08:00';
+
 CREATE TABLE IF NOT EXISTS accounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   phone VARCHAR(20) NOT NULL UNIQUE,
