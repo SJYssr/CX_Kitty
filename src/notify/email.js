@@ -100,7 +100,7 @@ export async function sendTaskComplete(to, phone, startedAt, finishedAt, courseN
         </p>
         ${courseListHtml}
       </div>
-      <p style="margin:16px 0 0;font-size:12px;color:#999;text-align:center">CX_Kitty · 超星学习通自动化工具</p>
+      <p style="margin:16px 0 0;font-size:12px;color:#999;text-align:center">CX_Kitty · 超星自助刷课平台</p>
     </div>`;
 
   return sendEmail(to, subject, html);

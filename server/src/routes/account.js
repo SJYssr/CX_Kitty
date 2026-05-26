@@ -62,7 +62,7 @@ router.get('/account/config', async (req, res) => {
     if (!phone) return res.json({ success: false, message: '缺少手机号' });
 
     const [rows] = await pool.query(
-      'SELECT id, phone, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email FROM accounts WHERE phone = ?',
+      'SELECT id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email FROM accounts WHERE phone = ?',
       [phone]
     );
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
@@ -75,6 +75,7 @@ router.get('/account/config', async (req, res) => {
       config: {
         id: rows[0].id,
         phone: rows[0].phone,
+        name: rows[0].name || '',
         deepseek_model: rows[0].deepseek_model || 'deepseek-v4-flash',
         enable_answering: !!rows[0].enable_answering,
         auto_submit: !!rows[0].auto_submit,

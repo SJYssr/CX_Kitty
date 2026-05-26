@@ -211,6 +211,12 @@ export async function runStudy(params) {
       await processor.run();
     }
 
+    // 在 updateStatus 覆写进度前，先读取课程名用于邮件通知
+    const finalProgress = await readProgress();
+    const courseNames = finalProgress.courses
+      ? Object.values(finalProgress.courses).filter(c => c.completed > 0).map(c => c.title)
+      : [];
+
     await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
 
     // 发送完成通知邮件
@@ -222,10 +228,6 @@ export async function runStudy(params) {
           [taskId]
         );
         if (taskRows.length > 0) {
-          const progress = await readProgress();
-          const courseNames = progress.courses
-            ? Object.values(progress.courses).filter(c => c.completed > 0).map(c => c.title)
-            : [];
 
           const fmt = (d) => {
             if (!d) return '—';

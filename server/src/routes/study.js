@@ -62,6 +62,16 @@ router.post('/login', async (req, res) => {
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '超星登录失败' });
 
+    // 登录成功后尝试获取并保存用户姓名
+    try {
+      const info = await chaoxing.getUserInfo();
+      if (info.name) {
+        await pool.query('UPDATE accounts SET name=? WHERE phone=?', [info.name, phone]);
+      }
+    } catch (e) {
+      console.warn('获取用户信息失败:', e?.message || e);
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });

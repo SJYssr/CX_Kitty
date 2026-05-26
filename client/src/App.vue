@@ -87,6 +87,12 @@ onMounted(() => {
         return
       }
       account.value = parsed
+      // 刷新服务端配置（含姓名等）
+      axios.get('/api/account/config', { params: { phone: parsed.phone } }).then(({ data: cfg }) => {
+        if (cfg.success && cfg.config) {
+          account.value = { ...account.value, ...cfg.config }
+        }
+      }).catch(() => {})
       router.push('/dashboard')
     } catch (e) {
       console.warn('解析 localStorage 失败:', e?.message || e)
