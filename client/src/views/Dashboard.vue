@@ -179,8 +179,18 @@ const taskLogs = computed(() => {
   for (const l of liveLogs.value) {
     if (!seen.has(l.t + '|' + l.text)) merged.push(l)
   }
-  // 按时间排序（旧的在前）
-  merged.sort((a, b) => (a.t || '').localeCompare(b.t || ''))
+  // 按时间排序（旧的在前）— 用数值比较避免 12 小时制 AM/PM localeCompare 错乱
+  function timeToSec(t) {
+    if (!t) return 0
+    const m = t.match(/^(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?$/i)
+    if (!m) return 0
+    let h = parseInt(m[1], 10), mi = parseInt(m[2], 10), s = parseInt(m[3], 10)
+    const ampm = (m[4] || '').toUpperCase()
+    if (ampm === 'PM' && h !== 12) h += 12
+    if (ampm === 'AM' && h === 12) h = 0
+    return h * 3600 + mi * 60 + s
+  }
+  merged.sort((a, b) => timeToSec(a.t) - timeToSec(b.t))
   // 取最后 20 条（最新的），再反转成新在上旧在下
   return merged.slice(-20).reverse()
 })
