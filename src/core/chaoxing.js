@@ -629,22 +629,8 @@ export class Chaoxing {
     const maxForbidden = 2;
     let currentDtoken = dtoken;
 
-    // 防止无限循环：到达末尾后最多尝试这么多次心跳
-    const MAX_POST_DURATION_ATTEMPTS = 10;
-    let postDurationAttempts = 0;
-
-    // 总超时：最多跑 2 倍视频时长（按倍速折算）
-    const LOOP_START = Date.now();
-    const MAX_LOOP_MS = Math.max(duration * 2 * 1000 / (actualSpeed || 1), 600000); // 至少 10 分钟，最多 2x视频时长
-
     while (true) {
       const now = Date.now();
-
-      // 检查总超时，防止无限循环
-      if (now - LOOP_START > MAX_LOOP_MS) {
-        logger.warn(`${jobName} 处理超时 (${Math.round((now - LOOP_START) / 1000)}s)，强制完成`);
-        return StudyResult.SUCCESS;
-      }
 
       // 判断是否需要上报
       if ((playTime - lastLogTime >= waitTime) || playTime >= duration) {
@@ -680,15 +666,6 @@ export class Chaoxing {
           logger.info(`${jobName} 完成`);
           return StudyResult.SUCCESS;
         }
-
-        // 到达 duration 后的心跳尝试计数
-        if (playTime >= duration) {
-          postDurationAttempts++;
-          if (postDurationAttempts > MAX_POST_DURATION_ATTEMPTS) {
-            logger.warn(`${jobName} 到达末尾后多次心跳仍未通过，强制完成`);
-            return StudyResult.SUCCESS;
-          }
-        }
       }
 
       // 时间推进 (按倍速)
@@ -703,7 +680,7 @@ export class Chaoxing {
       }
       process.stdout.write(`\r${progressStr}`);
 
-      // 到达末尾后继续上报直到通过
+      // 到达末尾后继续上报直到通过（和 Python 原版一致）
       if (playTime >= duration) {
         await sleep(3000);
         playTime = duration;
@@ -711,6 +688,14 @@ export class Chaoxing {
         await sleep(1000);
       }
     }
+
+    // 正常不会走到这里，走到的概率极低
+    if (process.stdout.clearLine) {
+      process.stdout.clearLine(0);
+      process.stdout.cursorTo(0);
+    }
+    logger.warn(`${jobName} 超时未通过`);
+    return StudyResult.ERROR;
   }
 
   /**
