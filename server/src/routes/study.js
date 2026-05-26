@@ -31,12 +31,8 @@ router.post('/login', async (req, res) => {
 
     // 校验本地账号密码
     const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
-    if (!rows.length) {
-      return res.json({ success: false, message: '账号不存在，请先注册' });
-    }
-    const match = await bcrypt.compare(password, rows[0].password);
-    if (!match) {
-      return res.json({ success: false, message: '密码错误' });
+    if (!rows.length || !(await bcrypt.compare(password, rows[0].password))) {
+      return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
     }
 
     // 登录超星获取会话（刷课需要）
@@ -318,13 +314,15 @@ router.post('/register', async (req, res) => {
       return res.json({ success: false, message: '验证码错误或已过期' });
     }
 
-    // 校验超星账号密码是否可用
-    const jar = new CookieJar();
-    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
-    const cx = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone, fastMode: true });
-    const cxLogin = await cx.login(false);
-    if (!cxLogin.status) {
+    // 校验超星账号密码是否可用（连接失败也显示账号或密码错误）
+    try {
+      const jar = new CookieJar();
+      const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+      const { Chaoxing } = await import('../../../src/core/chaoxing.js');
+      const cx = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone, fastMode: true });
+      const cxLogin = await cx.login(false);
+      if (!cxLogin.status) throw new Error(cxLogin.msg);
+    } catch {
       return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
     }
 
