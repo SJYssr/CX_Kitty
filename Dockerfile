@@ -12,7 +12,7 @@ COPY client/package*.json client/
 COPY server/package*.json server/
 
 # 安装所有依赖（含 devDeps，前端构建需要）
-RUN npm ci
+RUN npm ci && cd server && npm ci
 
 # 复制源码
 COPY . .
