@@ -43,7 +43,10 @@ router.post('/login', async (req, res) => {
 
     // 校验本地账号密码
     const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
-    if (!rows.length || !(await bcrypt.compare(password, rows[0].password))) {
+    if (!rows.length) {
+      return res.json({ success: false, message: '该账号未注册，请先注册' });
+    }
+    if (!(await bcrypt.compare(password, rows[0].password))) {
       return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
     }
 
