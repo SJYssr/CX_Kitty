@@ -12,6 +12,8 @@ import Dashboard from './views/Dashboard.vue'
 const page = ref('login')
 const account = ref(null)
 
+const SESSION_DURATION = 30 * 60 * 1000; // 30 分钟
+
 async function onLogin(data) {
   account.value = data
   // 登录后从服务端加载配置（答题开关等）
@@ -21,9 +23,11 @@ async function onLogin(data) {
       account.value = { ...data, ...cfg.config }
     }
   } catch {}
-  // 不存储密码到 localStorage
-  const { password, ...safe } = account.value
-  localStorage.setItem('cx_account', JSON.stringify(safe))
+  // 存到 localStorage，带过期时间
+  localStorage.setItem('cx_account', JSON.stringify({
+    ...account.value,
+    _expiresAt: Date.now() + SESSION_DURATION
+  }))
   page.value = 'dashboard'
 }
 
@@ -38,8 +42,9 @@ onMounted(() => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved)
-      // 从 localStorage 恢复的不含密码，需要用户重新登录
-      if (!parsed.password) {
+      // 检查是否过期
+      if (!parsed.password || (parsed._expiresAt && Date.now() > parsed._expiresAt)) {
+        localStorage.removeItem('cx_account')
         page.value = 'login'
         return
       }
