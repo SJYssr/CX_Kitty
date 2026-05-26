@@ -5,7 +5,7 @@
 
 import { Tiku } from './tiku.js';
 import logger from '../utils/logger.js';
-import { execFileSync } from 'node:child_process';
+import { font2map, decrypt as fontDecrypt } from './font-decrypt.js';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -24,23 +24,20 @@ export class TikuDeepSeek extends Tiku {
 
   /** 设置当前页面的自定义字体(base64), 用于字体级解密 */
   setFont(fontBase64) {
-    this._fontB64 = fontBase64;
+    if (!fontBase64) return;
+    try {
+      const fontData = Buffer.from(fontBase64, 'base64');
+      this._glyfMap = font2map(fontData);
+    } catch {}
   }
 
   /** 使用字体解密文本, 失败则退回到手动映射 */
   _decryptWithFont(text) {
-    if (!text || !this._fontB64 || text.length < 2) return null;
-    const scriptPath = new URL('decrypt_font.py', import.meta.url).pathname;
+    if (!text || !this._glyfMap || text.length < 2) return null;
     try {
-      const input = this._fontB64 + '\n' + text;
-      const result = execFileSync('python3', [scriptPath], {
-        input,
-        timeout: 5000,
-        maxBuffer: 1024 * 1024
-      });
-      const out = result.toString().trim();
-      // 仅当解密结果有变化时才返回, 否则让手动映射兜底
-      if (out && out !== text && !out.includes('FONTTOOLS_MISSING') && out.length > 0) return out;
+      const result = fontDecrypt(this._glyfMap, text);
+      // 仅当有实质变化才返回
+      if (result && result !== text) return result;
     } catch {}
     return null;
   }
