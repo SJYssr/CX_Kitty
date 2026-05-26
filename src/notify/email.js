@@ -66,9 +66,21 @@ export async function sendEmail(to, subject, html) {
  */
 export async function sendVerifyCode(to, code) {
   const subject = 'CX_Kitty邮箱验证邮件';
-  const html = `<p>您好，您正在进行CX_Kitty自助刷课平台邮箱验证。</p><br>`
-    + `<p>您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b></p><br>`
-    + `<p>验证码 5 分钟内有效，如果不是本人操作，请忽略。</p>`;
+  const html = `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#f9f9f9;border-radius:12px">
+      <div style="background:#fff;border-radius:8px;padding:24px">
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.8">
+          您好，您正在进行CX_Kitty自助刷课平台邮箱验证。
+        </p>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.8">
+          您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b>
+        </p>
+        <p style="margin:0;font-size:14px;line-height:1.8">
+          验证码 5 分钟内有效，如果不是本人操作，请忽略。
+        </p>
+      </div>
+      <p style="margin:16px 0 0;font-size:12px;color:#999;text-align:center">CX_Kitty · 超星自助刷课平台</p>
+    </div>`;
   return sendEmail(to, subject, html);
 }
 
