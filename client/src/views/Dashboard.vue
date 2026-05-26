@@ -413,6 +413,7 @@ async function loadTasks() {
         } else if (data.tasks.length > 0) {
           // 无运行中任务时显示最新一条历史任务
           currentTask.value = data.tasks[0]
+        }
       }
     }
   } catch {} finally { loadingTasks.value = false }
