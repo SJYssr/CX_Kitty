@@ -16,15 +16,11 @@ router.post('/study/start', async (req, res) => {
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
     // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key）
-    let [accounts] = await pool.query(
+    const [accounts] = await pool.query(
       'SELECT id, deepseek_api_key, deepseek_model, enable_answering, auto_submit FROM accounts WHERE phone = ?', [phone]
     );
     if (!accounts.length) {
-      const [insertRes] = await pool.query(
-        'INSERT INTO accounts (phone, password, status) VALUES (?, ?, ?)',
-        [phone, password, 'active']
-      );
-      accounts = [{ id: insertRes.insertId, deepseek_api_key: '', deepseek_model: 'deepseek-v4-pro', enable_answering: 1, auto_submit: 0 }];
+      return res.json({ success: false, message: '该账号未注册，请先注册' });
     }
 
     const deepseekApiKey = accounts[0].deepseek_api_key || '';
@@ -71,10 +67,13 @@ router.post('/study/start', async (req, res) => {
     // 后台运行（不阻塞 HTTP）
     runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, deepseekModel, autoSubmit, enableAnswering, taskId, pool })
       .catch(err => {
+        console.error('[study/start] runStudy 失败:', err?.message || err);
         pool.query(
           'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
           ['failed', err.message || String(err), taskId]
-        ).catch(() => {});
+        ).catch(e => {
+          console.error('[study/start] 更新任务状态失败:', e?.message || e);
+        });
       });
 
     res.json({ success: true, taskId });
@@ -131,30 +130,32 @@ router.get('/study/tasks', async (req, res) => {
 });
 
 // 实时日志 SSE
-router.get('/study/logs/:taskId', (req, res) => {
+router.get('/study/logs/:taskId', async (req, res) => {
   const taskId = req.params.taskId;
+
+  // 先验证身份，再建立 SSE 连接
+  const phone = req.query.phone;
+  if (phone) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
+        [taskId, phone]
+      );
+      if (!rows.length) {
+        return res.status(403).json({ success: false, message: 'forbidden' });
+      }
+    } catch {
+      return res.status(500).json({ success: false, message: 'auth error' });
+    }
+  }
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no'
   });
-  res.write(':\n\n'); // 初始化
-
-  // 检查 phone 参数验证用户对该任务的归属
-  const phone = req.query.phone;
-  if (phone) {
-    pool.query(
-      'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
-      [taskId, phone]
-    ).then(([rows]) => {
-      if (!rows.length) {
-        res.writeHead(403);
-        res.end('forbidden');
-        return;
-      }
-    }).catch(() => {});
-  }
+  res.write(':\n\n');
 
   let destroyed = false;
 

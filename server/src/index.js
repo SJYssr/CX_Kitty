@@ -90,6 +90,15 @@ pool.query(
   console.warn('  清理残留任务失败:', e.message);
 });
 
+// 迁移：notify_email 唯一索引（防 TOCTOU 竞态）
+pool.query(
+  'ALTER TABLE accounts ADD UNIQUE INDEX idx_notify_email (notify_email)'
+).catch(e => {
+  if (!e.message.includes('Duplicate') && !e.message.includes('already exists')) {
+    console.warn('  添加 notify_email 唯一索引失败:', e.message);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🐱 CX_Kitty Server → http://localhost:${PORT}`);
   if (!fs.existsSync(distPath)) {
