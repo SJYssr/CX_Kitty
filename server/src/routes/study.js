@@ -116,7 +116,7 @@ router.post('/study/start', async (req, res) => {
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）
-    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, autoSubmit, enableAnswering, taskId, pool })
+    runStudy({ phone, password, courseIds, speed: 5, jobs: 1, deepseekApiKey, autoSubmit, enableAnswering, taskId, pool })
       .catch(err => {
         pool.query(
           'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
