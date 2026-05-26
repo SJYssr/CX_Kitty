@@ -69,19 +69,20 @@ router.post('/study/start', async (req, res) => {
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    // 从 DB 读取账号配置（答题开关、自动提交、DeepSeek Key）
+    // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key）
     let [accounts] = await pool.query(
-      'SELECT id, deepseek_api_key, enable_answering, auto_submit FROM accounts WHERE phone = ?', [phone]
+      'SELECT id, deepseek_api_key, deepseek_model, enable_answering, auto_submit FROM accounts WHERE phone = ?', [phone]
     );
     if (!accounts.length) {
       const [insertRes] = await pool.query(
         'INSERT INTO accounts (phone, password, status) VALUES (?, ?, ?)',
         [phone, password, 'active']
       );
-      accounts = [{ id: insertRes.insertId, deepseek_api_key: '', enable_answering: 1, auto_submit: 0 }];
+      accounts = [{ id: insertRes.insertId, deepseek_api_key: '', deepseek_model: 'deepseek-v4-pro', enable_answering: 1, auto_submit: 0 }];
     }
 
     const deepseekApiKey = accounts[0].deepseek_api_key || '';
+    const deepseekModel = accounts[0].deepseek_model || 'deepseek-v4-pro';
     const enableAnswering = accounts[0].enable_answering !== 0;
     const autoSubmit = !!accounts[0].auto_submit;
 
@@ -117,7 +118,7 @@ router.post('/study/start', async (req, res) => {
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）
-    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, autoSubmit, enableAnswering, taskId, pool })
+    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, deepseekModel, autoSubmit, enableAnswering, taskId, pool })
       .catch(err => {
         pool.query(
           'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',

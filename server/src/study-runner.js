@@ -29,7 +29,7 @@ import { CookieJar } from 'tough-cookie';
 const GLOBAL_THROTTLE = new RateLimiter(200);
 
 export async function runStudy(params) {
-  const { phone, password, courseIds, speed, jobs, deepseekApiKey, autoSubmit, taskId, pool } = params;
+  const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId, pool } = params;
 
   let _terminated = false;
 
@@ -105,7 +105,7 @@ export async function runStudy(params) {
 
   try {
     const tiku = (params.enableAnswering !== false) ? (() => {
-      const t = new TikuDeepSeek(deepseekApiKey || '');
+      const t = new TikuDeepSeek(deepseekApiKey || '', deepseekModel || 'deepseek-v4-pro');
       t.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
       return t;
     })() : null;
