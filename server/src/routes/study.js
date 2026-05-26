@@ -307,6 +307,12 @@ router.post('/register', async (req, res) => {
       return res.json({ success: false, message: '验证码错误或已过期' });
     }
 
+    // 邮箱重复校验
+    const [emailUsed] = await pool.query('SELECT id, phone FROM accounts WHERE notify_email = ? AND phone != ?', [email, phone]);
+    if (emailUsed.length > 0) {
+      return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
+    }
+
     const hashed = await bcrypt.hash(password, 10);
     const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
 
