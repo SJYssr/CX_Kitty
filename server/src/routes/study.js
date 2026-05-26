@@ -29,19 +29,24 @@ router.post('/login', async (req, res) => {
     const { phone, password } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
+    // 校验本地账号密码
+    const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
+    if (!rows.length) {
+      return res.json({ success: false, message: '账号不存在，请先注册' });
+    }
+    const match = await bcrypt.compare(password, rows[0].password);
+    if (!match) {
+      return res.json({ success: false, message: '密码错误' });
+    }
+
+    // 登录超星获取会话（刷课需要）
     const jar = new CookieJar();
     const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
     const { Chaoxing } = await import('../../../src/core/chaoxing.js');
     const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
 
     const loginResult = await chaoxing.login(false);
-    if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
-
-    // 仅允许已注册用户登录（需在 accounts 表中有记录）
-    const [rows] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
-    if (!rows.length) {
-      return res.json({ success: false, message: '请先注册后再登录' });
-    }
+    if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '超星登录失败' });
 
     res.json({ success: true });
   } catch (err) {
