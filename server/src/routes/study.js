@@ -37,20 +37,20 @@ router.post('/login', async (req, res) => {
     const { phone, password, captchaToken, captchaCode } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    // 1. 先查本地账号（最快最便宜）
+    // 1. 先校验图形验证码（防刷、防暴力破解）
+    if (!verifyCaptcha(captchaToken, captchaCode)) {
+      return res.json({ success: false, message: '验证码错误或已过期' });
+    }
+
+    // 2. 查本地账号
     const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
     if (!rows.length) {
       return res.json({ success: false, message: '该账号未注册，请先注册' });
     }
 
-    // 2. 再校验密码
+    // 3. 校验密码
     if (!(await bcrypt.compare(password, rows[0].password))) {
       return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
-    }
-
-    // 3. 校验图形验证码（一次性消耗，放后面）
-    if (!verifyCaptcha(captchaToken, captchaCode)) {
-      return res.json({ success: false, message: '验证码错误或已过期' });
     }
 
     // 4. 登录超星获取会话（刷课需要）
