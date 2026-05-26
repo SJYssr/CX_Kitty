@@ -53,10 +53,8 @@ async function handleLogin() {
   loading.value = true
   try {
     const { data } = await axios.post('/api/login', form.value)
-    if (!data.success) { ElMessage.error(data.message || '超星登录失败'); return }
-    await axios.post('/api/account/save', form.value).catch(() => {})
-    const info = await axios.post('/api/account/info', form.value).catch(() => ({ data: {} }))
-    emit('login', { phone: form.value.phone, password: form.value.password, name: info?.data?.info?.name || '' })
+    if (!data.success) { ElMessage.error(data.message || '登录失败'); return }
+    emit('login', { phone: form.value.phone, password: form.value.password })
   } catch { ElMessage.error('无法连接服务器') }
   finally { loading.value = false }
 }
