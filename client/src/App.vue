@@ -1,11 +1,21 @@
 <template>
+  <!-- 顶部负载 + 公告（登录/注册页显示，保持一致） -->
+  <div v-if="page !== 'dashboard'" class="top-container">
+    <div class="task-bar">
+      系统负载: <span :class="taskCount >= maxTasks ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
+    </div>
+    <div class="notice-marquee">
+      <span>本项目为公益项目，服务器最大承受为50个任务，答题功能未测试，不知道效果如何，望周知。</span>
+    </div>
+  </div>
+
   <Login v-if="page === 'login'" @login="onLogin" @register="page = 'register'" />
   <Register v-else-if="page === 'register'" @back="page = 'login'" />
   <Dashboard v-else :account="account" @logout="onLogout" />
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import Login from './views/Login.vue'
 import Register from './views/Register.vue'
@@ -14,11 +24,24 @@ import Dashboard from './views/Dashboard.vue'
 const page = ref('login')
 const account = ref(null)
 
-const SESSION_DURATION = 30 * 60 * 1000; // 30 分钟
+const taskCount = ref(0)
+const maxTasks = ref(100)
+let countTimer = null
+
+const SESSION_DURATION = 30 * 60 * 1000;
+
+async function fetchTaskCount() {
+  try {
+    const { data } = await axios.get('/api/system/task-count')
+    if (data.success) {
+      taskCount.value = data.count
+      maxTasks.value = data.max || 50
+    }
+  } catch (e) { console.warn('fetchTaskCount:', e?.message) }
+}
 
 async function onLogin(data) {
   account.value = data
-  // 登录后从服务端加载配置（答题开关等）
   try {
     const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
     if (cfg.success && cfg.config) {
@@ -27,7 +50,6 @@ async function onLogin(data) {
   } catch (e) {
     console.warn('加载服务端配置失败:', e?.message || e)
   }
-  // 存到 localStorage，带过期时间
   localStorage.setItem('cx_account', JSON.stringify({
     ...account.value,
     _expiresAt: Date.now() + SESSION_DURATION
@@ -42,11 +64,12 @@ function onLogout() {
 }
 
 onMounted(() => {
+  fetchTaskCount()
+  countTimer = setInterval(fetchTaskCount, 1000)
   const saved = localStorage.getItem('cx_account')
   if (saved) {
     try {
       const parsed = JSON.parse(saved)
-      // 检查是否过期
       if (!parsed.password || (parsed._expiresAt && Date.now() > parsed._expiresAt)) {
         localStorage.removeItem('cx_account')
         page.value = 'login'
@@ -60,9 +83,38 @@ onMounted(() => {
     }
   }
 })
+
+onUnmounted(() => {
+  if (countTimer) clearInterval(countTimer)
+})
 </script>
 
 <style>
+.task-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.5); color: #fff;
+  text-align: center; padding: 6px; font-size: 13px;
+  z-index: 100; backdrop-filter: blur(8px);
+}
+.task-bar .ok { color: #67c23a; }
+.task-bar .full { color: #f56c6c; }
+.notice-marquee {
+  position: fixed; top: 28px; left: 0; right: 0;
+  background: rgba(0,0,0,0.35); color: #e6a23c;
+  text-align: left; padding: 6px 0;
+  font-size: 14px; z-index: 100;
+  backdrop-filter: blur(8px);
+  overflow: hidden; white-space: nowrap;
+}
+.notice-marquee span {
+  display: inline-block;
+  animation: marquee 20s linear infinite;
+}
+@keyframes marquee {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+.top-container { position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
 html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 #app { height: 100%; }

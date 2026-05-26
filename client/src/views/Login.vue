@@ -1,14 +1,6 @@
 <template>
   <div class="login-page">
-    <div class="task-bar">
-      系统负载: <span :class="taskCount >= maxTasks ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
-    </div>
-
-    <div class="notice-marquee">
-      <span>本项目为公益项目，服务器最大承受为50个任务，答题功能未测试，不知道效果如何，望周知。</span>
-    </div>
-
-    <div class="card">
+<div class="card">
       
       <h1>CX_Kitty</h1>
       <p class="desc">超星自助刷课平台</p>
@@ -48,24 +40,10 @@ import axios from 'axios'
 defineEmits(['login', 'register'])
 const formRef = ref(null)
 const loading = ref(false)
-const taskCount = ref(0)
-const maxTasks = ref(100)
-let countTimer = null
-
 const form = ref({ phone: '', password: '' })
 const rules = {
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-}
-
-async function fetchTaskCount() {
-  try {
-    const { data } = await axios.get('/api/system/task-count')
-    if (data.success) {
-      taskCount.value = data.count
-      maxTasks.value = data.max || 50
-    }
-  } catch (e) { console.warn("fetchTaskCount:", e?.message) }
 }
 
 async function handleLogin() {
@@ -82,9 +60,6 @@ async function handleLogin() {
   } catch { ElMessage.error('无法连接服务器') }
   finally { loading.value = false }
 }
-
-onMounted(() => { fetchTaskCount(); countTimer = setInterval(fetchTaskCount, 1000) })
-onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
 </script>
 
 <style scoped>
@@ -106,16 +81,7 @@ onUnmounted(() => { if (countTimer) clearInterval(countTimer) })
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.4);
   z-index: -1;
-}
-.task-bar {
-  position: fixed; top: 0; left: 0; right: 0;
-  background: rgba(0,0,0,0.5); color: #fff;
-  text-align: center; padding: 6px; font-size: 13px;
-  z-index: 100; backdrop-filter: blur(8px);
-}
-.task-bar .ok { color: #67c23a; }
-.task-bar .full { color: #f56c6c; }
-.full-warning {
+}.full-warning {
   background: rgba(254,240,240,0.9); color: #f56c6c;
   padding: 10px 16px; border-radius: 8px;
   font-size: 13px; margin-bottom: 16px;
@@ -148,24 +114,4 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
   position: fixed; bottom: 10px; left: 0; right: 0;
   text-align: center; font-size: 11px; color: rgba(255,255,255,0.25);
   line-height: 1.6;
-}
-.notice-marquee {
-  position: fixed; top: 28px; left: 0; right: 0;
-  background: rgba(0,0,0,0.35); color: #e6a23c;
-  text-align: left;
-  padding: 6px 0;
-  font-size: 14px;
-  z-index: 100;
-  backdrop-filter: blur(8px);
-  overflow: hidden;
-  white-space: nowrap;
-}
-.notice-marquee span {
-  display: inline-block;
-  animation: marquee 20s linear infinite;
-}
-@keyframes marquee {
-  0% { transform: translateX(100vw); }
-  100% { transform: translateX(-100%); }
-}
-</style>
+}</style>
