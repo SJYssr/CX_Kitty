@@ -80,7 +80,9 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     // 未到达末尾: 随机等待后推进时间
     const waitTime = randomInt(30, 90);
     const step = Math.min(waitTime * actualSpeed, duration - playTime);
-    renderVideoProgress(jobName, Math.floor(playTime), duration);
+    const progressStr = renderVideoProgress(jobName, Math.floor(playTime), duration);
+    if (process.stdout.clearLine) process.stdout.clearLine(0);
+    process.stdout.write(`\r${progressStr}`);
     logger.info(`${jobName} 进度: ${Math.floor(playTime)}/${duration}秒`);
     await sleep(waitTime * 1000);
     playTime += step;
