@@ -154,6 +154,7 @@ export async function runStudy(params) {
     });
     chaoxing._taskId = taskId;
     chaoxing._onProgress = writeProgress;
+    chaoxing._abortController = abortController;
     chaoxing.__terminated = false;
 
     // 强制密码登录，避免 SessionManager 单例串号

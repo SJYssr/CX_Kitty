@@ -29,7 +29,7 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
   }
 
   // 加载时从 cx 获取终止检查函数
-  const _isTerminated = () => cx.__terminated === true;
+  const _isTerminated = () => cx.__terminated === true || cx._abortController?.signal?.aborted === true;
 
   // 检查是否被终止
   if (_isTerminated()) {
