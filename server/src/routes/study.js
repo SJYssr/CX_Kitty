@@ -21,7 +21,7 @@ router.get('/system/task-count', async (req, res) => {
     );
     res.json({ success: true, count: rows[0].count, max: 50 });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -58,7 +58,7 @@ router.post('/login', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -78,7 +78,7 @@ router.post('/courses', async (req, res) => {
     const courses = await chaoxing.getCourseList();
     res.json({ success: true, courses });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -155,7 +155,7 @@ router.post('/study/start', async (req, res) => {
 
     res.json({ success: true, taskId });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -171,7 +171,7 @@ router.get('/study/status/:taskId', async (req, res) => {
     const [rows] = await pool.query(sql, params);
     res.json({ success: true, task: rows[0] || null });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -185,7 +185,7 @@ router.post('/study/terminate/:taskId', async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -202,7 +202,7 @@ router.get('/study/tasks', async (req, res) => {
     const [rows] = await pool.query(sql, params);
     res.json({ success: true, tasks: rows });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -286,7 +286,7 @@ router.get('/study/logs-db/:taskId', async (req, res) => {
     }
     res.json({ success: true, logs: [] });
   } catch (err) {
-    res.json({ success: false, message: err.message, logs: [] });
+    res.json({ success: false, message: sanitizeError(err), logs: [] });
   }
 });
 
@@ -307,7 +307,7 @@ router.post('/send-verify-code', async (req, res) => {
     if (!ok) return res.json({ success: false, message: '验证码发送失败，请检查邮箱是否正确' });
     res.json({ success: true, message: '验证码已发送' });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -359,7 +359,7 @@ router.post('/register', async (req, res) => {
 
     res.json({ success: true, message: '注册成功' });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 

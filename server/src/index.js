@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import pool from './db.js';
 import accountRoutes from './routes/account.js';
 import studyRoutes from './routes/study.js';
+import { sanitizeError } from './error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -51,7 +52,7 @@ app.get('/api/balance', async (req, res) => {
     const balance = data.balance_infos?.reduce((sum, b) => sum + parseFloat(b.topped_up_balance || 0), 0) || 0;
     res.json({ success: true, balance });
   } catch (err) {
-    res.json({ success: false, message: err.message, balance: 0 });
+    res.json({ success: false, message: sanitizeError(err), balance: 0 });
   }
 });
 
@@ -69,7 +70,7 @@ if (fs.existsSync(distPath)) {
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ success: false, message: err.message || '服务器错误' });
+  res.status(500).json({ success: false, message: sanitizeError(err) });
 });
 
 // 启动时清理残留的 running 任务（上次部署留下的）

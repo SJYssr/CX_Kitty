@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import pool from '../db.js';
 import axios from 'axios';
+import { sanitizeError } from '../error.js';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
 
@@ -50,7 +51,7 @@ router.post('/account/save', async (req, res) => {
     );
     res.json({ success: true, account: { id: r.insertId, phone } });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -83,7 +84,7 @@ router.get('/account/config', async (req, res) => {
       }
     });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
@@ -112,7 +113,7 @@ router.post('/account/info', async (req, res) => {
 
     res.json({ success: true, info });
   } catch (err) {
-    res.json({ success: false, message: err.message });
+    res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
