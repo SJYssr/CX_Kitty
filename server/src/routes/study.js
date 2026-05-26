@@ -4,6 +4,7 @@ import { runStudy } from '../study-runner.js';
 import bus from '../log-bus.js';
 import { generateCode, verifyCode } from '../verify-code.js';
 import { sendEmail } from '../../../src/notify/email.js';
+import bcrypt from 'bcryptjs';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
@@ -293,25 +294,32 @@ router.post('/send-verify-code', async (req, res) => {
   }
 });
 
-/** 注册（验证码校验 + 保存邮箱） */
+/** 注册（验证码校验 + 保存手机号/密码/邮箱） */
 router.post('/register', async (req, res) => {
   try {
-    const { phone, email, code } = req.body;
-    if (!phone || !email || !code) {
+    const { phone, password, email, code } = req.body;
+    if (!phone || !password || !email || !code) {
       return res.json({ success: false, message: '请填写完整信息' });
     }
 
-    // 验证码校验
+    // 验证码校验（通过后才存数据）
     if (!verifyCode(email, code)) {
       return res.json({ success: false, message: '验证码错误或已过期' });
     }
 
-    // 更新或插入账号邮箱
+    const hashed = await bcrypt.hash(password, 10);
     const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
+
     if (existing.length > 0) {
-      await pool.query('UPDATE accounts SET notify_email = ? WHERE phone = ?', [email, phone]);
+      await pool.query(
+        'UPDATE accounts SET password = ?, notify_email = ? WHERE phone = ?',
+        [hashed, email, phone]
+      );
     } else {
-      return res.json({ success: false, message: '请先通过超星账号登录后再绑定邮箱' });
+      await pool.query(
+        'INSERT INTO accounts (phone, password, notify_email, status) VALUES (?, ?, ?, ?)',
+        [phone, hashed, email, 'active']
+      );
     }
 
     res.json({ success: true, message: '注册成功' });

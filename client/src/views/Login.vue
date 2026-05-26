@@ -160,6 +160,7 @@ async function handleRegister() {
   try {
     const { data } = await axios.post('/api/register', {
       phone: registerForm.value.phone,
+      password: registerForm.value.password,
       email: registerForm.value.email,
       code: registerForm.value.code
     })
