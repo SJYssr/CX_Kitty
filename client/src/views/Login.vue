@@ -46,7 +46,7 @@ import { ElMessage } from 'element-plus'
 import { Phone, Lock, Key } from '@element-plus/icons-vue'
 import axios from 'axios'
 
-defineEmits(['login', 'register'])
+const emit = defineEmits(['login', 'register'])
 const taskCount = inject('taskCount', ref(0))
 const maxTasks = inject('maxTasks', ref(50))
 const formRef = ref(null)
