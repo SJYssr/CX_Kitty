@@ -318,6 +318,16 @@ router.post('/register', async (req, res) => {
       return res.json({ success: false, message: '验证码错误或已过期' });
     }
 
+    // 校验超星账号密码是否可用
+    const jar = new CookieJar();
+    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
+    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
+    const cx = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone, fastMode: true });
+    const cxLogin = await cx.login(false);
+    if (!cxLogin.status) {
+      return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
+    }
+
     // 邮箱重复校验
     const [emailUsed] = await pool.query('SELECT id, phone FROM accounts WHERE notify_email = ? AND phone != ?', [email, phone]);
     if (emailUsed.length > 0) {
