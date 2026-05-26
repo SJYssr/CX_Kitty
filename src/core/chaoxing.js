@@ -867,7 +867,7 @@ export class Chaoxing {
       const totalQuestions = questions.length;
 
       // 设置 answerwqbid（题目ID列表）
-      formData.answerwqbid = questions.map(q => q.id).join(',') + ',';
+      formData.answerwqbid = questions.map(q => q.id).join(',');
 
       // 先查所有题目的答案（查完才知道覆盖率）
       const answers = [];
@@ -911,7 +911,7 @@ export class Chaoxing {
           } else if (q.type === 'completion' || q.type === 'shortanswer') {
             formData[q.answerField] = ans;
           } else {
-            formData[q.answerField] = this._mapAnswerToIndex(ans, q);
+            formData[q.answerField] = this._mapAnswerToLetter(ans, q);
           }
         } else {
           // 没答案 → 随机选
@@ -999,24 +999,16 @@ export class Chaoxing {
    * 答案映射: 字母 → 选项索引
    * @private
    */
-  _mapAnswerToIndex(answer, question) {
+  _mapAnswerToLetter(answer, question) {
     const options = question.options || [];
     const type = question.type;
 
     if (type === 'single') {
-      const idx = answer.toUpperCase().charCodeAt(0) - 65; // A=0, B=1 ...
-      if (idx >= 0 && idx < options.length) return String(idx);
-      return '0';
+      return (answer || 'A').toUpperCase().charAt(0);
     }
 
     if (type === 'multiple') {
-      // 多选: 答案如 "ABD" → "0,2,3"
-      const indices = [];
-      for (const ch of answer.toUpperCase()) {
-        const idx = ch.charCodeAt(0) - 65;
-        if (idx >= 0 && idx < options.length) indices.push(idx);
-      }
-      return indices.sort().join(',');
+      return answer.toUpperCase().split('').sort().join(',');
     }
 
     return answer;
@@ -1034,15 +1026,15 @@ export class Chaoxing {
       return Math.random() > 0.5 ? 'true' : 'false';
     }
     if (type === 'single') {
-      return optsLen > 0 ? String(randomInt(0, optsLen - 1)) : '0';
+      return String.fromCharCode(65 + Math.floor(Math.random() * Math.max(optsLen, 4)));
     }
     if (type === 'multiple') {
       const count = randomInt(1, Math.min(optsLen, 4));
-      const indices = new Set();
-      while (indices.size < count) {
-        indices.add(randomInt(0, optsLen - 1));
+      const letters = new Set();
+      while (letters.size < count) {
+        letters.add(String.fromCharCode(65 + randomInt(0, Math.max(optsLen, 4) - 1)));
       }
-      return [...indices].sort().join(',');
+      return [...letters].sort().join(',');
     }
     if (type === 'completion' || type === 'shortanswer') {
       return '答案';
