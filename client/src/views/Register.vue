@@ -83,7 +83,7 @@ async function handleRegister() {
   const valid = await registerRef.value.validate().catch(() => false)
   if (!valid) return
   registering.value = true
-  let done = false
+  let success = false
   try {
     const { data } = await axios.post('/api/register', {
       phone: form.value.phone,
@@ -100,14 +100,17 @@ async function handleRegister() {
     form.value.password = ''
     form.value.email = ''
     form.value.code = ''
-    done = true
-    setTimeout(() => emit('back'), 300)
+    success = true
   } catch (e) {
     console.error('注册异常:', e)
     ElMessage.error('注册失败')
   }
   finally {
-    if (!done) registering.value = false
+    if (!success) registering.value = false
+  }
+  if (success) {
+    registering.value = false
+    emit('back')
   }
 }
 </script>
