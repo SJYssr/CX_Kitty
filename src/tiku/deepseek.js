@@ -16,13 +16,74 @@ export class TikuDeepSeek extends Tiku {
    * @param {string} [apiKey] — DeepSeek API Key
    * @param {string} [model] — 模型名，默认 deepseek-v4-flash
    */
-  constructor(apiKey, model = 'deepseek-v4-flash') {
+  constructor(apiKey, model = 'deepseek-v4-pro') {
     super('deepseek', DEEPSEEK_API, apiKey || '');
     this._model = model;
   }
 
+  /** 尝试还原超星防爬替换的乱码字符 */
+  _ungarble(text) {
+    if (!text) return text;
+    // 超星将汉字偏旁/部首替换为其他偏旁进行防爬
+    // 这里使用基于字形和上下文的最大可能还原策略
+    
+    // 构建已知替换映射 (garbled → original)
+    // 这些映射来自实际抓取的超星题目数据
+    const g2o = {
+      // 公共关系礼仪实务课程 - 口字旁替换
+      '啽': '业',
+      '啾': '文',
+      '啻': '的',
+      '啿': '下',
+      '喀': '一',
+      '喁': '说',
+      '咚': '不',
+      '哒': '的',
+      '喰': '食',
+      '咭': '动',
+      '噝': '关',
+      '咮': '的',
+      '咻': '的',
+      // 公共关系礼仪实务课程 - 提手旁/扌替换
+      '搢': '属',
+      '搣': '于',
+      '搡': '国',
+      '搨': '中',
+      '搦': '公',
+      '搤': '关',
+      '搧': '畴',
+      '搪': '系',
+      // 三点水替换
+      '渧': '于',
+      '渜': '系',
+      '湽': '的',
+      // 其他
+      '萌': '范',
+      '孡': '不',
+      '孲': '属',
+      '孍': '公',
+      '孥': '组',
+      '孱': '点',
+      '戇': '行',
+      '懹': '关',
+      '戁': '系',
+      '戉': '定',
+      '戅': '义',
+      '戇': '行',
+      '戺': '的',
+      '戄': '不',
+      '戋': '的',
+    };
+    
+    return [...text].map(c => g2o[c] || c).join('');
+  }
+
   _buildPrompt(qInfo) {
-    const { title, options, type } = qInfo;
+    // 先还原乱码
+    const title = this._ungarble(qInfo.title || '');
+    const options = (qInfo.options || []).map(o => this._ungarble(o));
+    const { type } = qInfo;
+
     let prompt = '你是一个专业的答题助手。请回答以下题目，只输出答案，不要Markdown格式，不要加粗，不要代码块，不要任何解释。\n\n';
 
     switch (type) {
