@@ -1,6 +1,6 @@
 <template>
   <!-- 顶部负载 + 公告（登录/注册页显示，保持一致） -->
-  <div v-if="page !== 'dashboard'" class="top-container">
+  <div v-if="showTopBar" class="top-container">
     <div class="task-bar">
       系统负载: <span :class="taskCount >= maxTasks ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
     </div>
@@ -9,26 +9,27 @@
     </div>
   </div>
 
-  <Login v-if="page === 'login'" @login="onLogin" @register="page = 'register'" />
-  <Register v-else-if="page === 'register'" @back="page = 'login'" />
-  <Dashboard v-else :account="account" @logout="onLogout" />
+  <router-view v-slot="{ Component }">
+    <component :is="Component" :account="account" @login="onLogin" @register="goRegister" @back="goBack" @logout="onLogout" />
+  </router-view>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
-import Login from './views/Login.vue'
-import Register from './views/Register.vue'
-import Dashboard from './views/Dashboard.vue'
 
-const page = ref('login')
+const router = useRouter()
+const route = useRoute()
 const account = ref(null)
 
 const taskCount = ref(0)
 const maxTasks = ref(100)
 let countTimer = null
 
-const SESSION_DURATION = 30 * 60 * 1000;
+const showTopBar = computed(() => route.name === 'Login' || route.name === 'Register')
+
+const SESSION_DURATION = 30 * 60 * 1000
 
 async function fetchTaskCount() {
   try {
@@ -54,13 +55,21 @@ async function onLogin(data) {
     ...account.value,
     _expiresAt: Date.now() + SESSION_DURATION
   }))
-  page.value = 'dashboard'
+  router.push('/dashboard')
+}
+
+function goRegister() {
+  router.push('/register')
+}
+
+function goBack() {
+  router.push('/login')
 }
 
 function onLogout() {
   account.value = null
   localStorage.removeItem('cx_account')
-  page.value = 'login'
+  router.push('/login')
 }
 
 onMounted(() => {
@@ -72,11 +81,11 @@ onMounted(() => {
       const parsed = JSON.parse(saved)
       if (!parsed.password || (parsed._expiresAt && Date.now() > parsed._expiresAt)) {
         localStorage.removeItem('cx_account')
-        page.value = 'login'
+        router.push('/login')
         return
       }
       account.value = parsed
-      page.value = 'dashboard'
+      router.push('/dashboard')
     } catch (e) {
       console.warn('解析 localStorage 失败:', e?.message || e)
       localStorage.removeItem('cx_account')
