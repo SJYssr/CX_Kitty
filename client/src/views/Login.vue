@@ -1,7 +1,7 @@
 <template>
   <div class="login-page">
     <div class="task-bar">
-      系统负载: <span :class="taskCount >= 100 ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
+      系统负载: <span :class="taskCount >= maxTasks ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
     </div>
 
     <div class="notice-marquee">
@@ -13,7 +13,7 @@
       <h1>CX_Kitty</h1>
       <p class="desc">超星自助刷课平台</p>
 
-      <div v-if="taskCount >= 100" class="full-warning">
+      <div v-if="taskCount >= maxTasks" class="full-warning">
         ⚠️ 服务器已满({{ taskCount }}/{{ maxTasks }})，请稍后再试
       </div>
 
@@ -25,7 +25,7 @@
           <template #prefix><el-icon><Lock /></el-icon></template>
         </el-input>
         <el-button type="primary" size="large" :loading="loading" :disabled="taskCount >= 100" style="width: 100%" @click="handleLogin">
-          {{ loading ? '登录中...' : taskCount >= 100 ? '服务器已满' : '登 录' }}
+          {{ loading ? '登录中...' : taskCount >= maxTasks ? '服务器已满' : '登 录' }}
         </el-button>
       </el-form>
 
@@ -62,13 +62,13 @@ async function fetchTaskCount() {
     const { data } = await axios.get('/api/system/task-count')
     if (data.success) {
       taskCount.value = data.count
-      maxTasks.value = data.max || 100
+      maxTasks.value = data.max || 50
     }
   } catch {}
 }
 
 async function handleLogin() {
-  if (taskCount.value >= 100) { ElMessage.warning('服务器已满，请稍后再试'); return }
+  if (taskCount.value >= maxTasks.value) { ElMessage.warning('服务器已满，请稍后再试'); return }
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   loading.value = true

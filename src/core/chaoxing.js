@@ -121,14 +121,11 @@ export class Chaoxing {
     }
 
     try {
-      const encPhone = aesEncrypt(phone);
-      const encPwd = aesEncrypt(password);
-
       const params = new URLSearchParams({
         fid: '-1',
-        uname: encPhone,
-        password: encPwd,
-        refer: 'https%3A%2F%2Fi.chaoxing.com',
+        uname: phone,
+        password: password,
+        refer: 'https://i.chaoxing.com',
         t: 'true',
         forbidotherlogin: '0',
         validate: '',

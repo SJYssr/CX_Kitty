@@ -226,8 +226,8 @@ const detailCourses = computed(() => {
 })
 
 function getTaskIndex(taskId) {
-  const idx = tasks.value.findIndex(t => t.id === taskId)
-  return idx >= 0 ? tasks.value.length - idx : taskId
+  const idx = tasks.value.findIndex(t => String(t.id) === String(taskId))
+  return idx >= 0 ? tasks.value.length - idx : '?'
 }
 
 function onConfigDone(configData) {

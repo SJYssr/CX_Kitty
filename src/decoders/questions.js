@@ -22,8 +22,7 @@ const TYPE_MAP = {
  */
 function extractTTF(html) {
   // 匹配 @font-face 中的 src: url(data:font/ttf;base64,...)
-  const m = html.match(/src\s*:\s*url\(\s*['"]?data:\s*font\/[^;]+;\s*base64\s*,\s*([^'")\s]+)\s*['"]?\s*\)/i);
-  if (!m) return null;
+  const m = html.match(/src\s*:\s*url\(\s*['"]?data:\s*(?:font\/|application\/font-)[^;]+(?:;[^;]*)*;\s*base64\s*,\s*([^'")\s]+)\s*['"]?\s*\)/i);
   try {
     const b64 = m[1].replace(/\s/g, '');
     return Buffer.from(b64, 'base64');
