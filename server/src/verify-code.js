@@ -14,7 +14,7 @@ setInterval(() => {
 /**
  * 生成并缓存验证码
  * @param {string} email
- * @returns {string} 6 位验证码
+ * @returns {string} 5 位验证码
  */
 export function generateCode(email) {
   const code = String(Math.floor(10000 + Math.random() * 90000));
