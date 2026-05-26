@@ -161,7 +161,7 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
   animation: marquee 20s linear infinite;
 }
 @keyframes marquee {
-  0% { transform: translateX(100%); }
+  0% { transform: translateX(100vw); }
   100% { transform: translateX(-100%); }
 }
 </style>
