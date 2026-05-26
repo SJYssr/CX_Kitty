@@ -921,13 +921,25 @@ export class Chaoxing {
 
       // 5. 提交
       formData.pyFlag = pyFlag;
-      formData.token = jobInfo ? (jobInfo.ktoken || '') : '';
-      formData.key = jobInfo ? (jobInfo.mtEnc || jobInfo.defenc || '') : '';
+
+      const submitUrl = `https://mooc1.chaoxing.com/mooc-ans/work/addStudentWorkNewWeb`
+        + `?_classId=${formData.classId}`
+        + `&courseid=${formData.courseId}`
+        + `&token=${formData.enc_work}`
+        + `&totalQuestionNum=${encodeURIComponent(formData.totalQuestionNum)}`
+        + `&workid=${formData.workRelationId}`
+        + `&cpi=${formData.cpi}`
+        + `&jobid=${formData.jobid}`
+        + `&knowledgeid=${formData.knowledgeid}`
+        + `&testmooc2=1`
+        + `&originJobId=${formData.jobid}`;
+
+      logger.info(`提交中: pyFlag=${pyFlag}, 题目数=${totalQuestions}`);
 
       const params = new URLSearchParams(formData);
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       const submitResp = await this.axios.post(
-        'https://mooc1.chaoxing.com/mooc-ans/work/addStudentWorkNew',
+        submitUrl,
         params.toString(),
         {
           headers: {
@@ -943,6 +955,7 @@ export class Chaoxing {
 
       if (submitResp.status === 200) {
         const resultText = typeof submitResp.data === 'string' ? submitResp.data : JSON.stringify(submitResp.data);
+        logger.info(`提交结果: ${resultText.slice(0, 100)}`);
 
         if (resultText.includes('success') || resultText.includes('成功') || resultText.includes('true')) {
           logger.info(`答题完成: ${job.name || job.jobid}`);
