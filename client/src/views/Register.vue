@@ -39,10 +39,12 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Phone, Lock, Message, Key } from '@element-plus/icons-vue'
 import axios from 'axios'
 
+const router = useRouter()
 defineEmits(['back'])
 const registerRef = ref(null)
 const registering = ref(false)
@@ -110,7 +112,7 @@ async function handleRegister() {
   }
   if (success) {
     registering.value = false
-    emit('back')
+    router.push('/login')
   }
 }
 </script>
