@@ -65,7 +65,7 @@ export async function runStudy(params) {
         // 任务被终止后不再发射事件和写DB
         if (_terminated) return;
 
-        const entry = { t: new Date().toLocaleTimeString(), text: msg.text };
+        const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
         bus.emit('log:' + taskId, entry);
         // 只追加日志，不碰 courses - 使用 JSON_SET 直接操作
         await pool.query(
