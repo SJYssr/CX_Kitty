@@ -47,7 +47,7 @@ export async function runStudy(params) {
         'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
         [status, progress || '{}', taskId]
       );
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('updateStatus 失败: ' + (e.message || e)); }
   };
 
   // 检查任务是否被终止（新任务替换了旧任务时）
@@ -56,7 +56,7 @@ export async function runStudy(params) {
     try {
       const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
       return rows.length > 0 && rows[0].status === 'terminated';
-    } catch { return false; }
+    } catch (e) { console.warn('checkTerminated 失败: ' + (e.message || e)); return false; }
   };
 
   /** 读取当前进度 (JS 操作避免复杂 JSON_SET) */
@@ -68,8 +68,8 @@ export async function runStudy(params) {
           ? JSON.parse(rows[0].progress)
           : rows[0].progress;
       }
-    } catch {
-      /* 读进度失败就返回空对象 */
+    } catch (e) {
+      console.warn('readProgress 失败: ' + (e.message || e));
     }
     return {};
   };
@@ -83,6 +83,12 @@ export async function runStudy(params) {
         if (_terminated) return;
         const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
         bus.emit('log:' + taskId, entry);
+        // 写入独立 task_logs 表
+        await pool.query(
+          'INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)',
+          [taskId, entry.t, entry.text]
+        );
+        // 同时保留在 progress.logs 中（前端旧版兼容）
         if (!Array.isArray(p.logs)) p.logs = [];
         p.logs.push(entry);
         await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);

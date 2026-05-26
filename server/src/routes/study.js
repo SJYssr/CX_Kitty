@@ -234,4 +234,17 @@ router.get('/study/logs/:taskId', (req, res) => {
   req.on('error', cleanup);
 });
 
+// 从 task_logs 表获取历史日志
+router.get('/study/logs-db/:taskId', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT time, text FROM task_logs WHERE task_id = ? ORDER BY id ASC',
+      [req.params.taskId]
+    );
+    res.json({ success: true, logs: rows });
+  } catch (err) {
+    res.json({ success: false, message: err.message, logs: [] });
+  }
+});
+
 export default router;

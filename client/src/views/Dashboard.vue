@@ -166,16 +166,22 @@ let timer = null
 let loadTimer = null
 let sseSource = null
 
+const historyLogs = ref([])
+
+async function loadHistoryLogs(taskId) {
+  try {
+    const { data } = await axios.get('/api/study/logs-db/' + taskId)
+    if (data.success) {
+      historyLogs.value = data.logs || []
+    }
+  } catch {}
+}
+
 const taskLogs = computed(() => {
-  const p = currentTask.value?.progress
-  let dbLogs = []
-  if (p) {
-    if (typeof p === 'string') { try { dbLogs = JSON.parse(p)?.logs || [] } catch {} }
-    else { dbLogs = p?.logs || [] }
-  }
-  // 以 DB 日志为主，合并实时日志
-  const seen = new Set(dbLogs.map(l => l.t + '|' + l.text))
-  const merged = [...dbLogs]
+  // 先用独立 task_logs 表的数据
+  const seen = new Set(historyLogs.value.map(l => l.time + '|' + l.text))
+  const merged = historyLogs.value.map(l => ({ t: l.time, text: l.text }))
+  // 合并实时日志（SSE）
   for (const l of liveLogs.value) {
     if (!seen.has(l.t + '|' + l.text)) merged.push(l)
   }
@@ -188,6 +194,7 @@ const taskLogs = computed(() => {
 let sseReconnectTimer = null
 
 function connectSSE(taskId) {
+  loadHistoryLogs(taskId)
   if (sseSource) { sseSource.close(); sseSource = null }
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
   // 不清空 liveLogs，重连时保留已有日志

@@ -29,3 +29,12 @@ CREATE TABLE IF NOT EXISTS study_tasks (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_account_status (account_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS task_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  task_id INT NOT NULL,
+  time VARCHAR(20) NOT NULL,
+  text TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_task_id (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
