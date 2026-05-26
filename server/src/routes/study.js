@@ -110,6 +110,11 @@ router.post('/study/start', async (req, res) => {
       [accounts[0].id]
     );
     if (toKeep.length > 0) {
+      // 先删对应的 task_logs
+      await pool.query(
+        'DELETE FROM task_logs WHERE task_id IN (SELECT id FROM study_tasks WHERE account_id = ? AND id NOT IN (?))',
+        [accounts[0].id, toKeep.map(r => r.id)]
+      );
       await pool.query(
         'DELETE FROM study_tasks WHERE account_id = ? AND id NOT IN (?)',
         [accounts[0].id, toKeep.map(r => r.id)]
