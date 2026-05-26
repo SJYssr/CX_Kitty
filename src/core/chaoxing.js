@@ -853,6 +853,12 @@ export class Chaoxing {
 
       const html = typeof resp.data === 'string' ? resp.data : '';
 
+      // 如果 tiku 支持字体解密, 从 HTML 中提取自定义字体
+      if (this.tiku && typeof this.tiku.setFont === 'function') {
+        const fontMatch = html.match(/data:font\/woff;base64,([A-Za-z0-9+/=]+)/);
+        if (fontMatch) this.tiku.setFont(fontMatch[1]);
+      }
+
       // 2. 解析题目
       const { parseQuestions } = await import('../decoders/questions.js');
       const { formData, questions } = parseQuestions(html);

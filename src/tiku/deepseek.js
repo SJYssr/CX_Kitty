@@ -5,6 +5,7 @@
 
 import { Tiku } from './tiku.js';
 import logger from '../utils/logger.js';
+import { execFileSync } from 'node:child_process';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -21,37 +22,51 @@ export class TikuDeepSeek extends Tiku {
     this._model = model;
   }
 
+  /** 设置当前页面的自定义字体(base64), 用于字体级解密 */
+  setFont(fontBase64) {
+    this._fontB64 = fontBase64;
+  }
+
+  /** 使用字体解密文本, 失败则退回到手动映射 */
+  _decryptWithFont(text) {
+    if (!text || !this._fontB64 || text.length < 2) return null;
+    const scriptPath = new URL('decrypt_font.py', import.meta.url).pathname;
+    try {
+      const input = this._fontB64 + '\n' + text;
+      const result = execFileSync('python3', [scriptPath], {
+        input,
+        timeout: 5000,
+        maxBuffer: 1024 * 1024
+      });
+      const out = result.toString().trim();
+      // 仅当解密结果有变化时才返回, 否则让手动映射兜底
+      if (out && out !== text && !out.includes('FONTTOOLS_MISSING') && out.length > 0) return out;
+    } catch {}
+    return null;
+  }
+
   /** 尝试还原超星防爬替换的乱码字符 */
   _ungarble(text) {
     if (!text) return text;
-    // 超星将汉字偏旁/部首替换为其他偏旁进行防爬
+
+    // 优先使用字体解密
+    const fontResult = this._decryptWithFont(text);
+    if (fontResult) return fontResult;
+
+    // 备选: 手动映射表 (覆盖字体解密无法处理的残余字符)
     const g2o = new Map([
-      // 口字旁 → 还原
       ['啽', '业'], ['啾', '文'], ['啻', '的'], ['啿', '下'],
       ['喀', '一'], ['喁', '说'], ['咚', '不'], ['哒', '的'],
       ['喰', '食'], ['咭', '动'], ['噝', '关'], ['咮', '的'],
       ['咻', '的'], ['咟', '一'], ['咘', '个'], ['咞', '规'],
       ['嚀', '关'], ['蘢', '来'],
-      // 子字旁 → 还原
       ['孏', '不'], ['孡', '不'], ['孠', '属'], ['孲', '属'],
       ['孧', '组'], ['孍', '公'], ['孥', '组'], ['孱', '点'],
-      ['孶', '的'], ['孴', '方'], ['孳', '用'], ['孮', '说'],
-      ['孈', '关'], ['孋', '列'], ['孛', '的'], ['孨', '于'],
-      ['孾', '是'], ['孉', '写'], ['孊', '报'], ['孌', '告'],
-      // 提手旁/扌 → 还原
       ['搢', '属'], ['搣', '于'], ['搡', '中'], ['搨', '公'],
       ['搦', '共'], ['搤', '关'], ['搧', '畴'], ['搪', '系'],
-      // 三点水 → 还原
       ['渧', '于'], ['渜', '系'], ['湽', '的'],
-      // 女字旁 → 还原
-      ['媝', '属'], ['媧', '于'], ['媥', '调'], ['媨', '查'],
-      ['媩', '报'], ['媦', '的'], ['媍', '一'], ['奲', '般'],
-      ['媛', '来'], ['媘', '分'], ['媚', '层'], ['媜', '的'],
-      // 戈/心旁 → 还原
       ['戇', '行'], ['懹', '关'], ['戁', '系'], ['戉', '定'],
-      ['戅', '义'], ['戺', '的'], ['戄', '不'], ['戋', '的'],
-      // 其他
-      ['萌', '范'],
+      ['戅', '义'], ['萌', '范'],
     ]);
     return [...text].map(c => g2o.get(c) || c).join('');
   }
