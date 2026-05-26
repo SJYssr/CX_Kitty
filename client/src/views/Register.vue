@@ -29,6 +29,11 @@
 
       <div class="back-link" @click="$emit('back')">返回登录</div>
     </div>
+    <div class="copyright">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
+    <div class="disclaimer">
+      该项目如果对您造成不良后果，需要您个人承担<br>
+      一切解释权归SJYssr所有
+    </div>
   </div>
 </template>
 
@@ -136,4 +141,13 @@ h1 { font-size: 24px; color: #fff; margin-bottom: 4px; font-weight: 700; }
   transition: color 0.2s;
 }
 .back-link:hover { color: #409EFF; }
+.copyright {
+  position: fixed; bottom: 50px; left: 0; right: 0;
+  text-align: center; font-size: 13px; color: rgba(255,255,255,0.4);
+}
+.disclaimer {
+  position: fixed; bottom: 10px; left: 0; right: 0;
+  text-align: center; font-size: 11px; color: rgba(255,255,255,0.25);
+  line-height: 1.6;
+}
 </style>
