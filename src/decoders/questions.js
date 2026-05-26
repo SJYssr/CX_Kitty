@@ -94,9 +94,9 @@ export function parseQuestions(html) {
     });
   });
 
-  // 尝试解码字体加密
+  // 尝试解码字体加密：只要有 TTF 字体就解码（无需 hasEncodedChars 预检）
   const ttfBuffer = extractTTF(html);
-  if (ttfBuffer && questions.some(q => hasEncodedChars(q.title) || q.options.some(o => hasEncodedChars(o)))) {
+  if (ttfBuffer) {
     for (const q of questions) {
       q.title = decodeFontText(q.title, ttfBuffer);
       q.options = q.options.map(o => decodeFontText(o, ttfBuffer));

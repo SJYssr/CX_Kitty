@@ -450,11 +450,14 @@ export function hasEncodedChars(text) {
   if (!text) return false;
   for (const char of text) {
     const code = char.charCodeAt(0);
-    // 超星加密常用的生僻汉字范围（非标准 CJK 常用字区域）
+    // 超星加密常用生僻汉字范围：覆盖所有已知的加密字符区域
     if (code >= 0x5500 && code <= 0x5600) return true;
-    if (code >= 0x5B2B && code <= 0x5B42) return true;
-    if (code === 0x74D4 || code === 0x827F || code === 0x60DF) return true;
-    if (code >= 0x5590 && code <= 0x55F0) return true;
+    if (code >= 0x55F0 && code <= 0x5700) return true;
+    if (code >= 0x5800 && code <= 0x5900) return true;
+    if (code >= 0x5B00 && code <= 0x5C00) return true;
+    if (code === 0x74D4 || code === 0x827F || code === 0x60DF || code === 0x7150) return true;
+    if (code >= 0x5580 && code <= 0x5600) return true;
+    if (code >= 0x56A0 && code <= 0x5700) return true;
   }
   return false;
 }
