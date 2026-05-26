@@ -79,6 +79,7 @@ async function sendCode() {
 }
 
 async function handleRegister() {
+  if (registering.value) return
   const valid = await registerRef.value.validate().catch(() => false)
   if (!valid) return
   registering.value = true
