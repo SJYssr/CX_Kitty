@@ -13,10 +13,19 @@
         <el-input v-model="form.phone" placeholder="学习通手机号" size="large" style="margin-bottom: 16px;">
           <template #prefix><el-icon><Phone /></el-icon></template>
         </el-input>
-        <el-input v-model="form.password" type="password" placeholder="学习通密码" size="large" show-password style="margin-bottom: 20px;">
+        <el-input v-model="form.password" type="password" placeholder="学习通密码" size="large" show-password style="margin-bottom: 16px;">
           <template #prefix><el-icon><Lock /></el-icon></template>
         </el-input>
-        <el-button type="primary" size="large" :loading="loading" :disabled="taskCount >= 100" style="width: 100%" @click="handleLogin">
+
+        <!-- 图形验证码 -->
+        <div class="captcha-row">
+          <el-input v-model="form.captchaCode" placeholder="验证码" size="large" style="flex:1" @keyup.enter="handleLogin">
+            <template #prefix><el-icon><Key /></el-icon></template>
+          </el-input>
+          <div class="captcha-img" @click="loadCaptcha" v-html="captchaSvg" title="点击刷新验证码"></div>
+        </div>
+
+        <el-button type="primary" size="large" :loading="loading" :disabled="taskCount >= maxTasks" style="width: 100%;margin-top:8px" @click="handleLogin">
           {{ loading ? '登录中...' : taskCount >= maxTasks ? '服务器已满' : '登 录' }}
         </el-button>
       </el-form>
@@ -32,18 +41,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, inject, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Phone, Lock } from '@element-plus/icons-vue'
+import { Phone, Lock, Key } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 defineEmits(['login', 'register'])
+const taskCount = inject('taskCount', ref(0))
+const maxTasks = inject('maxTasks', ref(50))
 const formRef = ref(null)
 const loading = ref(false)
-const form = ref({ phone: '', password: '' })
+const form = ref({ phone: '', password: '', captchaCode: '', captchaToken: '' })
+const captchaSvg = ref('')
 const rules = {
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+}
+
+async function loadCaptcha() {
+  try {
+    const { data } = await axios.get('/api/captcha')
+    if (data.success) {
+      captchaSvg.value = data.svg
+      form.value.captchaToken = data.token
+      form.value.captchaCode = ''
+    }
+  } catch (e) {
+    console.warn('loadCaptcha:', e?.message)
+  }
 }
 
 async function handleLogin() {
@@ -52,12 +78,28 @@ async function handleLogin() {
   if (!valid) return
   loading.value = true
   try {
-    const { data } = await axios.post('/api/login', form.value)
-    if (!data.success) { ElMessage.error(data.message || '登录失败'); return }
+    const { data } = await axios.post('/api/login', {
+      phone: form.value.phone,
+      password: form.value.password,
+      captchaToken: form.value.captchaToken,
+      captchaCode: form.value.captchaCode
+    })
+    if (!data.success) {
+      ElMessage.error(data.message || '登录失败')
+      loadCaptcha()
+      return
+    }
     emit('login', { phone: form.value.phone, password: form.value.password })
-  } catch { ElMessage.error('无法连接服务器') }
+  } catch {
+    ElMessage.error('无法连接服务器')
+    loadCaptcha()
+  }
   finally { loading.value = false }
 }
+
+onMounted(() => {
+  loadCaptcha()
+})
 </script>
 
 <style scoped>
@@ -83,6 +125,23 @@ async function handleLogin() {
   background: rgba(254,240,240,0.9); color: #f56c6c;
   padding: 10px 16px; border-radius: 8px;
   font-size: 13px; margin-bottom: 16px;
+}
+.captcha-row {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 16px;
+}
+.captcha-img {
+  flex-shrink: 0;
+  width: 110px; height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255,255,255,0.9);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.captcha-img :deep(svg) {
+  width: 100%; height: 100%;
 }
 .card {
   background: rgba(255,255,255,0.15);

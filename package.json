@@ -25,6 +25,7 @@
     "nodemailer": "^8.0.9",
     "opentype.js": "^2.0.0",
     "ora": "^9.4.0",
+    "svg-captcha": "^1.4.0",
     "tough-cookie": "^6.0.1"
   },
   "devDependencies": {

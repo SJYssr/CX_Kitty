@@ -3,7 +3,8 @@ import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
 import bus from '../log-bus.js';
 import { generateCode, verifyCode } from '../verify-code.js';
-import { sendEmail } from '../../../src/notify/email.js';
+import { sendVerifyCode } from '../../../src/notify/email.js';
+import { generateCaptcha, verifyCaptcha } from '../captcha.js';
 import bcrypt from 'bcryptjs';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -24,10 +25,21 @@ router.get('/system/task-count', async (req, res) => {
   }
 });
 
+// 获取图形验证码
+router.get('/captcha', (req, res) => {
+  const { svg, token } = generateCaptcha();
+  res.json({ success: true, svg, token });
+});
+
 router.post('/login', async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, captchaToken, captchaCode } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
+
+    // 校验图形验证码
+    if (!verifyCaptcha(captchaToken, captchaCode)) {
+      return res.json({ success: false, message: '验证码错误或已过期' });
+    }
 
     // 校验本地账号密码
     const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
@@ -290,9 +302,7 @@ router.post('/send-verify-code', async (req, res) => {
     }
 
     const code = generateCode(email);
-    const ok = await sendEmail(email, 'CX_Kitty邮箱验证邮件',
-      `<p>您好，您正在进行CX_Kitty自助刷课平台邮箱验证。</p><br><p>您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b></p><br><p>验证码 5 分钟内有效，如果不是本人操作，请忽略。</p>`
-    );
+    const ok = await sendVerifyCode(email, code);
 
     if (!ok) return res.json({ success: false, message: '验证码发送失败，请检查邮箱是否正确' });
     res.json({ success: true, message: '验证码已发送' });

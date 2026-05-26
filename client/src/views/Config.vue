@@ -36,6 +36,9 @@
           <el-switch v-model="form.autoSubmit" active-text="自动提交" inactive-text="仅保存" />
         </el-form-item>
 
+        <el-form-item label="通知邮箱">
+          <el-input v-model="form.notifyEmail" placeholder="用于接收刷课通知的邮箱" size="small" />
+        </el-form-item>
 
 
         <el-button type="primary" size="large" style="width:100%;margin-top:12px" :loading="saving" @click="save">
@@ -68,6 +71,7 @@ const form = ref({
   deepseekModel: 'deepseek-v4-flash',
   enableAnswering: true,
   autoSubmit: false,
+  notifyEmail: '',
 })
 
 async function queryBalance() {
@@ -88,7 +92,8 @@ async function save() {
       password: props.account.password,
       deepseekModel: form.value.deepseekModel,
       enableAnswering: form.value.enableAnswering,
-      autoSubmit: form.value.autoSubmit
+      autoSubmit: form.value.autoSubmit,
+      notifyEmail: form.value.notifyEmail
     }
     // 仅在用户编辑时发送 API Key（修改或首次设置）
     if (editingKey.value && form.value.deepseekApiKey) {
@@ -100,7 +105,7 @@ async function save() {
     emit('enter', form.value)
     emit('close')
   } catch (e) {
-    error.value = '保存失败'
+    error.value = e.response?.data?.message || '保存失败'
   } finally { saving.value = false }
 }
 
@@ -115,6 +120,7 @@ onMounted(async () => {
         form.value.deepseekModel = data.config.deepseek_model || 'deepseek-v4-flash'
         form.value.enableAnswering = data.config.enable_answering !== false
         form.value.autoSubmit = !!data.config.auto_submit
+        form.value.notifyEmail = data.config.notify_email || ''
         // 不填充 API Key 到表单，只在有 key 时自动查余额
         if (hasKey.value) setTimeout(queryBalance, 500)
         return

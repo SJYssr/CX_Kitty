@@ -58,23 +58,47 @@ export async function sendEmail(to, subject, html) {
 }
 
 /**
+ * 发送邮箱验证码
+ * @param {string} to — 收件人邮箱
+ * @param {string} code — 验证码
+ */
+export async function sendVerifyCode(to, code) {
+  const subject = 'CX_Kitty邮箱验证邮件';
+  const html = `<p>您好，您正在进行CX_Kitty自助刷课平台邮箱验证。</p><br>`
+    + `<p>您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b></p><br>`
+    + `<p>验证码 5 分钟内有效，如果不是本人操作，请忽略。</p>`;
+  return sendEmail(to, subject, html);
+}
+
+/**
  * 发送刷课完成通知
  * @param {string} to — 收件人邮箱
- * @param {Object} task — 任务信息 { id, completed, total, courseTitle }
+ * @param {string} phone — 学习通手机号
+ * @param {string} startedAt — 任务开始时间
+ * @param {string} finishedAt — 任务完成时间
+ * @param {string[]} courseNames — 完成的课程名称列表
  */
-export async function sendTaskComplete(to, task) {
-  const subject = `CX_Kitty 刷课完成 🎉`;
+export async function sendTaskComplete(to, phone, startedAt, finishedAt, courseNames) {
+  const subject = '刷课完成任务通知';
+  const courseListHtml = courseNames.map(name => `<div style="padding:4px 0;font-size:14px">${name}</div>`).join('');
   const html = `
-    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f9f9f9;border-radius:12px">
-      <h2 style="margin:0 0 16px">🎉 刷课任务完成</h2>
-      <table style="width:100%;border-collapse:collapse">
-        <tr><td style="padding:8px 0;color:#666">任务编号</td><td style="padding:8px 0;font-weight:600">#${task.id}</td></tr>
-        <tr><td style="padding:8px 0;color:#666;border-top:1px solid #eee">课程</td>
-            <td style="padding:8px 0;font-weight:600;border-top:1px solid #eee">${task.courseTitle || '—'}</td></tr>
-        <tr><td style="padding:8px 0;color:#666;border-top:1px solid #eee">进度</td>
-            <td style="padding:8px 0;font-weight:600;border-top:1px solid #eee">${task.completed}/${task.total} 章节</td></tr>
-      </table>
-      <p style="margin:20px 0 0;font-size:12px;color:#999">CX_Kitty · 超星学习通自动化工具</p>
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#f9f9f9;border-radius:12px">
+      <div style="background:#fff;border-radius:8px;padding:24px">
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.8">
+          您好，学习通手机号 ${phone}
+        </p>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.8">
+          您在 ${startedAt} 开始的刷课任务已在 ${finishedAt} 完成
+        </p>
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.8">
+          请您登陆学习通查收
+        </p>
+        <p style="margin:0 0 8px;font-size:14px;font-weight:600">
+          以下是本次任务完成的课程
+        </p>
+        ${courseListHtml}
+      </div>
+      <p style="margin:16px 0 0;font-size:12px;color:#999;text-align:center">CX_Kitty · 超星学习通自动化工具</p>
     </div>`;
 
   return sendEmail(to, subject, html);

@@ -7,6 +7,7 @@ import { Chaoxing } from '../../src/core/chaoxing.js';
 import { RateLimiter } from '../../src/core/ratelimiter.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
+import { sendTaskComplete } from '../../src/notify/email.js';
 import bus from './log-bus.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -211,6 +212,39 @@ export async function runStudy(params) {
     }
 
     await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
+
+    // 发送完成通知邮件
+    try {
+      const [userRows] = await pool.query('SELECT notify_email FROM accounts WHERE phone = ?', [phone]);
+      if (userRows.length > 0 && userRows[0].notify_email) {
+        const [taskRows] = await pool.query(
+          'SELECT started_at, finished_at FROM study_tasks WHERE id = ?',
+          [taskId]
+        );
+        if (taskRows.length > 0) {
+          const progress = await readProgress();
+          const courseNames = progress.courses
+            ? Object.values(progress.courses).filter(c => c.completed > 0).map(c => c.title)
+            : [];
+
+          const fmt = (d) => {
+            if (!d) return '—';
+            const dt = new Date(d);
+            return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
+          };
+
+          await sendTaskComplete(
+            userRows[0].notify_email,
+            phone,
+            fmt(taskRows[0].started_at),
+            fmt(taskRows[0].finished_at || new Date()),
+            courseNames
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('发送任务完成邮件失败: ' + (e.message || e));
+    }
   } catch (err) {
     await updateStatus('failed', JSON.stringify({ error: err.message }));
   }

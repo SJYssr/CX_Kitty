@@ -15,7 +15,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, provide, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 
@@ -24,7 +24,9 @@ const route = useRoute()
 const account = ref(null)
 
 const taskCount = ref(0)
-const maxTasks = ref(100)
+const maxTasks = ref(50)
+provide('taskCount', taskCount)
+provide('maxTasks', maxTasks)
 let countTimer = null
 
 const showTopBar = computed(() => route.name === 'Login' || route.name === 'Register')

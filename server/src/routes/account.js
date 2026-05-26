@@ -10,8 +10,19 @@ const router = Router();
 // 保存/更新账号（含 AI 配置）
 router.post('/account/save', async (req, res) => {
   try {
-    const { phone, password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit } = req.body;
+    const { phone, password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, notifyEmail } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '手机号和密码不能为空' });
+
+    // 邮箱重复校验
+    if (notifyEmail !== undefined && notifyEmail) {
+      const [emailUsers] = await pool.query(
+        'SELECT id FROM accounts WHERE notify_email = ? AND phone != ?',
+        [notifyEmail, phone]
+      );
+      if (emailUsers.length > 0) {
+        return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
+      }
+    }
 
     const hashed = await bcrypt.hash(password, 10);
     const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
@@ -23,6 +34,7 @@ router.post('/account/save', async (req, res) => {
       if (deepseekModel !== undefined) { updates.push('deepseek_model = ?'); params.push(deepseekModel); }
       if (enableAnswering !== undefined) { updates.push('enable_answering = ?'); params.push(enableAnswering ? 1 : 0); }
       if (autoSubmit !== undefined) { updates.push('auto_submit = ?'); params.push(autoSubmit ? 1 : 0); }
+      if (notifyEmail !== undefined) { updates.push('notify_email = ?'); params.push(notifyEmail || null); }
 
       params.push(phone);
       await pool.query(`UPDATE accounts SET ${updates.join(', ')} WHERE phone = ?`, params);
@@ -30,9 +42,9 @@ router.post('/account/save', async (req, res) => {
     }
 
     const [r] = await pool.query(
-      `INSERT INTO accounts (phone, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [phone, hashed, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
+      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [phone, hashed, notifyEmail || null, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
        enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,
        autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0]
     );
@@ -49,7 +61,7 @@ router.get('/account/config', async (req, res) => {
     if (!phone) return res.json({ success: false, message: '缺少手机号' });
 
     const [rows] = await pool.query(
-      'SELECT id, phone, deepseek_api_key, deepseek_model, enable_answering, auto_submit FROM accounts WHERE phone = ?',
+      'SELECT id, phone, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email FROM accounts WHERE phone = ?',
       [phone]
     );
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
@@ -65,6 +77,7 @@ router.get('/account/config', async (req, res) => {
         deepseek_model: rows[0].deepseek_model || 'deepseek-v4-flash',
         enable_answering: !!rows[0].enable_answering,
         auto_submit: !!rows[0].auto_submit,
+        notify_email: rows[0].notify_email || '',
         has_deepseek_key: !!key,
         deepseek_key_masked: masked
       }
