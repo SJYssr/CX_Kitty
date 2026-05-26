@@ -284,7 +284,7 @@ router.post('/send-verify-code', async (req, res) => {
 
     const code = generateCode(email);
     const ok = await sendEmail(email, 'CX_Kitty邮箱验证邮件',
-      `<p>您好，您正在进行CX_Kitty自助刷课平台邮箱验证。</p><p>您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b></p><p>验证码 5 分钟内有效，如果不是本人操作，请忽略。</p>`
+      `<p>您好，您正在进行CX_Kitty自助刷课平台邮箱验证。</p><br><p>您的验证码为：<b style="font-size:28px;color:#409EFF;letter-spacing:4px">${code}</b></p><br><p>验证码 5 分钟内有效，如果不是本人操作，请忽略。</p>`
     );
 
     if (!ok) return res.json({ success: false, message: '验证码发送失败，请检查邮箱是否正确' });
