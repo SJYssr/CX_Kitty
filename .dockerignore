@@ -3,6 +3,7 @@ node_modules
 .cache
 cache.json
 data/*.db
+data/
 client/dist
 .env
 *.md

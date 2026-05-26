@@ -6,7 +6,10 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import logger from '../utils/logger.js';
+
+const _require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -130,8 +133,7 @@ export class CacheDAO {
 
 /** @private 内联 require 兼容 better-sqlite3 ESM 加载 */
 function require_better_sqlite3() {
-  // eslint-disable-next-line no-eval
-  return eval('require')('better-sqlite3');
+  return _require('better-sqlite3');
 }
 
 // ===================== Tiku 基类 =====================

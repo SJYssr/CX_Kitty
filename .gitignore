@@ -13,3 +13,5 @@ client/dist/
 .env
 server/.env
 
+data/
+cache.json
