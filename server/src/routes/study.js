@@ -37,6 +37,12 @@ router.post('/login', async (req, res) => {
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
 
+    // 仅允许已注册用户登录（需绑定邮箱）
+    const [rows] = await pool.query('SELECT notify_email FROM accounts WHERE phone = ?', [phone]);
+    if (!rows.length || !rows[0].notify_email) {
+      return res.json({ success: false, message: '请先注册并绑定邮箱后再登录' });
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false, message: err.message });
