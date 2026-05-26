@@ -32,8 +32,8 @@
           <el-switch v-model="form.enableAnswering" active-text="答题" inactive-text="不答题" />
         </el-form-item>
 
-        <el-form-item v-if="form.enableAnswering" label="自动提交">
-          <el-switch v-model="form.autoSubmit" active-text="自动提交" inactive-text="仅保存" />
+        <el-form-item label="自动提交">
+          <el-switch v-model="form.autoSubmit" :disabled="!form.enableAnswering" active-text="自动提交" inactive-text="仅保存" />
         </el-form-item>
 
         <el-form-item label="通知邮箱">
@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({ account: Object, dialogMode: Boolean })
@@ -72,6 +72,11 @@ const form = ref({
   enableAnswering: true,
   autoSubmit: false,
   notifyEmail: '',
+})
+
+// 自动答题关闭时，自动提交跟随置为 false
+watch(() => form.value.enableAnswering, (val) => {
+  if (!val) form.value.autoSubmit = false
 })
 
 async function queryBalance() {
