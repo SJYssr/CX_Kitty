@@ -315,7 +315,7 @@ router.post('/send-verify-code', async (req, res) => {
   }
 });
 
-/** 注册（验证码校验 + 保存手机号/密码/邮箱） */
+/** 注册 */
 router.post('/register', async (req, res) => {
   try {
     const { phone, password, email, code } = req.body;
@@ -323,12 +323,13 @@ router.post('/register', async (req, res) => {
       return res.json({ success: false, message: '请填写完整信息' });
     }
 
-    // 验证码校验（通过后才存数据）
-    if (!verifyCode(email, code)) {
-      return res.json({ success: false, message: '验证码错误或已过期' });
+    // 1. 先查是否已注册
+    const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
+    if (existing.length > 0) {
+      return res.json({ success: false, message: '该手机号已注册，请直接登录' });
     }
 
-    // 校验超星账号密码是否可用（连接失败也显示账号或密码错误）
+    // 2. 再校验超星账号密码（最耗时，放前面，避免浪费验证码）
     try {
       const jar = new CookieJar();
       const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
@@ -340,26 +341,23 @@ router.post('/register', async (req, res) => {
       return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
     }
 
-    // 邮箱重复校验
+    // 3. 邮箱重复校验
     const [emailUsed] = await pool.query('SELECT id, phone FROM accounts WHERE notify_email = ? AND phone != ?', [email, phone]);
     if (emailUsed.length > 0) {
       return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-    const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
-
-    if (existing.length > 0) {
-      await pool.query(
-        'UPDATE accounts SET password = ?, notify_email = ? WHERE phone = ?',
-        [hashed, email, phone]
-      );
-    } else {
-      await pool.query(
-        'INSERT INTO accounts (phone, password, notify_email, status) VALUES (?, ?, ?, ?)',
-        [phone, hashed, email, 'active']
-      );
+    // 4. 最后校验验证码（一次性消耗，放在最后）
+    if (!verifyCode(email, code)) {
+      return res.json({ success: false, message: '验证码错误或已过期' });
     }
+
+    // 5. 全部通过，写入数据库
+    const hashed = await bcrypt.hash(password, 10);
+    await pool.query(
+      'INSERT INTO accounts (phone, password, notify_email, status) VALUES (?, ?, ?, ?)',
+      [phone, hashed, email, 'active']
+    );
 
     res.json({ success: true, message: '注册成功' });
   } catch (err) {
