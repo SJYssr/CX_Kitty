@@ -4,6 +4,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import { decodeFontText, hasEncodedChars } from '../utils/font-decoder.js';
 
 /** 题型码 → 类型字符串 */
 const TYPE_MAP = {
@@ -15,7 +16,24 @@ const TYPE_MAP = {
 };
 
 /**
- * 解析答题页面 HTML，提取题目列表和表单数据
+ * 从 HTML 中提取 base64 编码的 TTF 字体
+ * @param {string} html
+ * @returns {Buffer|null}
+ */
+function extractTTF(html) {
+  // 匹配 @font-face 中的 src: url(data:font/ttf;base64,...)
+  const m = html.match(/src\s*:\s*url\(\s*['"]?data:\s*font\/[^;]+;\s*base64\s*,\s*([^'")\s]+)\s*['"]?\s*\)/i);
+  if (!m) return null;
+  try {
+    const b64 = m[1].replace(/\s/g, '');
+    return Buffer.from(b64, 'base64');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 解析答题页面 HTML，提取题目列表和表单数据，并处理字体加密
  * @param {string} html — /mooc-ans/api/work 返回的 HTML
  * @returns {{ formData: Object, questions: Array<{id: string, title: string, options: string[], type: string, answerField: string}> }}
  */
@@ -76,6 +94,15 @@ export function parseQuestions(html) {
       answerTypeField: `answertype${questionId}`
     });
   });
+
+  // 尝试解码字体加密
+  const ttfBuffer = extractTTF(html);
+  if (ttfBuffer && questions.some(q => hasEncodedChars(q.title) || q.options.some(o => hasEncodedChars(o)))) {
+    for (const q of questions) {
+      q.title = decodeFontText(q.title, ttfBuffer);
+      q.options = q.options.map(o => decodeFontText(o, ttfBuffer));
+    }
+  }
 
   return { formData, questions };
 }
