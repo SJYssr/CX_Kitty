@@ -7,7 +7,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import pool from './db.js';
 import accountRoutes from './routes/account.js';
+import authRoutes from './routes/auth.js';
 import studyRoutes from './routes/study.js';
+import coursesRoutes from './routes/courses.js';
+import systemRoutes from './routes/system.js';
 import { sanitizeError } from './error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,7 +23,10 @@ app.use(morgan('dev'));
 
 // API 路由
 app.use('/api', accountRoutes);
+app.use('/api', authRoutes);
 app.use('/api', studyRoutes);
+app.use('/api', coursesRoutes);
+app.use('/api', systemRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'OK', time: new Date().toISOString() });
