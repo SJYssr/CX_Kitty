@@ -3,7 +3,7 @@ import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
 import bus from '../log-bus.js';
 import { generateCode, verifyCode } from '../verify-code.js';
-import { sendEmail } from '../../src/notify/email.js';
+import { sendEmail } from '../../../src/notify/email.js';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import { CookieJar } from 'tough-cookie';
