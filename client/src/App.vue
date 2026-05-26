@@ -1,5 +1,6 @@
 <template>
-  <Login v-if="page === 'login'" @login="onLogin" />
+  <Login v-if="page === 'login'" @login="onLogin" @register="page = 'register'" />
+  <Register v-else-if="page === 'register'" @back="page = 'login'" />
   <Dashboard v-else :account="account" @logout="onLogout" />
 </template>
 
@@ -7,6 +8,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import Login from './views/Login.vue'
+import Register from './views/Register.vue'
 import Dashboard from './views/Dashboard.vue'
 
 const page = ref('login')
