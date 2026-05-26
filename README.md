@@ -167,7 +167,4 @@ npm test
 - 请合理使用，避免对超星服务器造成压力
 - 本项目仅供学习交流，禁止用于盈利
 
-## 🙏 致谢
 
-- [Samueli924/chaoxing](https://github.com/Samueli924/chaoxing) — 字体解密方案参考
-- [SocialSisterYi](https://github.com/SocialSisterYi) — 超星字体逆向思路
