@@ -127,7 +127,7 @@
             {{ {completed:'完成',failed:'失败',running:'进行中',pending:'等待',terminated:'已终止'}[detailTask.status]||detailTask.status }}
           </el-tag>
         </div>
-        <div v-if="detailCourses.length" style="max-height:400px;overflow-y:auto">
+        <div v-if="detailCourses.length" class="detail-course-list" style="max-height:400px;overflow-y:auto">
           <div v-for="c in detailCourses" :key="c.id" class="detail-course-item">
             <div class="detail-course-title">{{ c.title }}</div>
             <div class="detail-course-meta">{{ c.teacher }} · {{ c.courseId }}</div>
@@ -629,6 +629,14 @@ onUnmounted(() => {
 :deep(.el-tag--warning) { --el-tag-bg-color: rgba(230,162,60,0.3); }
 :deep(.el-tag--success) { --el-tag-bg-color: rgba(103,194,58,0.3); }
 :deep(.el-tag--info) { --el-tag-bg-color: rgba(144,147,153,0.3); }
+
+/* 滚动条统一风格 */
+.detail-course-list::-webkit-scrollbar,
+.el-table__body-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+.detail-course-list::-webkit-scrollbar-thumb,
+.el-table__body-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+.detail-course-list::-webkit-scrollbar-track,
+.el-table__body-wrapper::-webkit-scrollbar-track { background: transparent; }
 
 /* 分页 */
 :deep(.el-pagination button) { background: transparent !important; color: rgba(255,255,255,0.7); }
