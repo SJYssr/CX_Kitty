@@ -90,7 +90,8 @@ async function handleLogin() {
       return
     }
     emit('login', { phone: form.value.phone, password: form.value.password })
-  } catch {
+  } catch (e) {
+    console.error('登录请求失败:', e?.message || e, e?.response?.status, e?.response?.data)
     ElMessage.error('无法连接服务器')
     loadCaptcha()
   }
