@@ -869,6 +869,140 @@ export class Chaoxing {
       // 设置 answerwqbid（题目ID列表）
       formData.answerwqbid = questions.map(q => q.id).join(',');
 
+      // ======== 答案匹配助手函数（移植自 Samueli924/chaoxing） ========
+      const multi_cut = (answer) => {
+        if (!answer) return null;
+        const cutChar = ['\n', ',', '，', '|', '\r', '\t', '#', '*', '-', '_', '+', '@', '~', '/', '\\', '.', '&', ' ', '、'];
+        const s = String(answer);
+        for (const ch of cutChar) {
+          if (!s.includes(ch)) continue;
+          const res = s.split(ch).map(x => x.trim()).filter(Boolean);
+          if (res.length) return res;
+        }
+        const stripped = s.trim();
+        return stripped ? [stripped] : null;
+      };
+
+      const clean_res = (res) => {
+        if (typeof res === 'string') res = [res];
+        return (res || []).filter(c => c.length > 0);
+      };
+
+      const is_subsequence = (a, o) => {
+        let i = 0;
+        for (const ch of o) {
+          if (ch === a[i]) i++;
+          if (i >= a.length) return true;
+        }
+        return i >= a.length;
+      };
+
+      const get_option_text = (option) => {
+        // 去掉选项开头的字母标点，如 "A " "A." "A、"
+        return String(option).replace(/^[A-Za-z][.、\s)\]]?\s*/, '');
+      };
+
+      const normalize_text = (text) => {
+        // 去掉末尾的"选择"，去除非字母数字/汉字字符
+        return String(text).replace(/选择$/, '').replace(/[^\w\u4e00-\u9fff]/g, '');
+      };
+
+      const levenshteinDist = (a, b) => {
+        const m = a.length, n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++)
+          for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        return dp[m][n];
+      };
+
+      const similarity = (a, b) => {
+        const longer = a.length >= b.length ? a : b;
+        const shorter = a.length < b.length ? a : b;
+        if (longer.length === 0) return 1.0;
+        return (longer.length - levenshteinDist(longer, shorter)) / longer.length;
+      };
+
+      const best_option_by_similarity = (target, options, threshold = 0.8) => {
+        if (!target || !options || !options.length) return '';
+        const targetNorm = normalize_text(target);
+        if (!targetNorm) return '';
+        let bestLetter = '', bestScore = 0.0;
+        for (const option of options) {
+          const optionText = get_option_text(option);
+          const optionNorm = normalize_text(optionText);
+          if (!optionNorm) continue;
+          const score = similarity(targetNorm, optionNorm);
+          if (score > bestScore) {
+            bestScore = score;
+            bestLetter = String(option).charAt(0);
+          }
+        }
+        return bestScore >= threshold ? bestLetter : '';
+      };
+
+      const matchAnswerToLetter = (rawAnswer, q) => {
+        if (!rawAnswer) return '';
+        const r = String(rawAnswer).trim();
+        if (!r) return '';
+
+        if (q.type === 'multiple') {
+          const optList = multi_cut(q.options);
+          const ansList = multi_cut(r);
+          if (!ansList || !optList) return '';
+
+          let answer = '';
+          const matches = clean_res(ansList);
+          for (const part of matches) {
+            let matched = false;
+            for (const opt of optList) {
+              if (is_subsequence(part, opt)) {
+                answer += String(opt).charAt(0);
+                matched = true;
+                break;
+              }
+            }
+            if (!matched) {
+              const best = best_option_by_similarity(part, optList);
+              if (best) answer += best;
+            }
+          }
+          // 排序去重（超星要求多选答案排序）
+          answer = [...new Set(answer.split(''))].sort().join('');
+          return answer || '';
+        }
+
+        if (q.type === 'single') {
+          const optList = multi_cut(q.options);
+          const ansList = clean_res(multi_cut(r) || [r]);
+          if (!ansList.length) return '';
+
+          if (optList) {
+            const firstAns = ansList[0];
+            for (const opt of optList) {
+              if (is_subsequence(firstAns, opt)) {
+                return String(opt).charAt(0);
+              }
+            }
+            // 子序列匹配失败，尝试相似度
+            const best = best_option_by_similarity(firstAns, optList);
+            if (best) return best;
+          }
+          return (r).toUpperCase().charAt(0) || '';
+        }
+
+        if (q.type === 'judgement') {
+          const jr = this.tiku.judgementSelect?.(r);
+          return jr !== null ? (jr ? 'true' : 'false') : '';
+        }
+
+        // completion / shortanswer
+        return r;
+      };
+      // ======== 结束 ========
+
       // 先查所有题目的答案（查完才知道覆盖率）
       const answers = [];
       for (const q of questions) {
@@ -898,20 +1032,21 @@ export class Chaoxing {
       const shouldSubmit = this.rollbackTimes >= 1 || (submit && coverage >= coverRate);
       const pyFlag = shouldSubmit ? '' : '1';
 
-      // 5. 按 Python 源码的方式填充答案
+      // 5. 按 Samueli924/chaoxing 的方式填充答案（is_subsequence + similarity）
       for (const { q, answer: ans, found } of answers) {
         if (pyFlag === '1' && !found) {
           // 保存模式 + 未搜到答案 → 留空
           formData[q.answerField] = '';
         } else if (ans) {
-          // 有答案 → 映射
-          if (q.type === 'judgement') {
-            const jr = this.tiku.judgementSelect?.(ans);
-            formData[q.answerField] = jr !== null ? (jr ? 'true' : 'false') : this._randomAnswer(q);
-          } else if (q.type === 'completion' || q.type === 'shortanswer') {
-            formData[q.answerField] = ans;
+          // 有答案 → 使用深层匹配
+          const matched = matchAnswerToLetter(ans, q);
+          if (matched) {
+            logger.info(`答案匹配: [${q.title.slice(0, 30)}...] → ${matched}`);
+            formData[q.answerField] = matched;
           } else {
-            formData[q.answerField] = this._mapAnswerToLetter(ans, q);
+            // 匹配失败 → 随机选
+            logger.warn(`答案匹配失败(随机): [${q.title.slice(0, 30)}...] 原始=${ans.slice(0, 50)}`);
+            formData[q.answerField] = this._randomAnswer(q);
           }
         } else {
           // 没答案 → 随机选
