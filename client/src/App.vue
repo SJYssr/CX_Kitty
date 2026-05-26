@@ -22,7 +22,9 @@ async function onLogin(data) {
     if (cfg.success && cfg.config) {
       account.value = { ...data, ...cfg.config }
     }
-  } catch {}
+  } catch (e) {
+    console.warn('加载服务端配置失败:', e?.message || e)
+  }
   // 存到 localStorage，带过期时间
   localStorage.setItem('cx_account', JSON.stringify({
     ...account.value,
@@ -50,7 +52,10 @@ onMounted(() => {
       }
       account.value = parsed
       page.value = 'dashboard'
-    } catch { localStorage.removeItem('cx_account') }
+    } catch (e) {
+      console.warn('解析 localStorage 失败:', e?.message || e)
+      localStorage.removeItem('cx_account')
+    }
   }
 })
 </script>

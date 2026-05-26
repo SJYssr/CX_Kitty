@@ -64,7 +64,7 @@ async function fetchTaskCount() {
       taskCount.value = data.count
       maxTasks.value = data.max || 50
     }
-  } catch {}
+  } catch (e) { console.warn("fetchTaskCount:", e?.message) }
 }
 
 async function handleLogin() {

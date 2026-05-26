@@ -260,7 +260,7 @@ async function fetchSystemLoad() {
       runningTaskCount.value = data.count
       maxTaskCount.value = data.max || 100
     }
-  } catch {}
+  } catch (e) { console.warn("fetchSystemLoad:", e?.message) }
 }
 
 const systemLoadClass = computed(() =>
@@ -388,7 +388,7 @@ async function loadCourses(force = false) {
       courses.value = data.courses
       saveCoursesToCache()
     }
-  } catch {} finally { loadingCourses.value = false }
+  } catch (e) { console.warn("loadCourses:", e?.message) } finally { loadingCourses.value = false }
 }
 
 function startPolling(taskId) {
@@ -403,7 +403,7 @@ function startPolling(taskId) {
           clearInterval(timer); timer = null; disconnectSSE(); loadTasks()
         }
       }
-    } catch {}
+    } catch (e) { console.warn("loadCourses cb:", e?.message) }
   }, 3000)
 }
 
@@ -424,7 +424,7 @@ async function loadTasks() {
         }
       }
     }
-  } catch {} finally { loadingTasks.value = false }
+  } catch (e) { console.warn("loadTasks:", e?.message) } finally { loadingTasks.value = false }
 }
 
 async function start() {

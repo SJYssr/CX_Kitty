@@ -76,7 +76,7 @@ async function queryBalance() {
   try {
     const { data } = await axios.get('/api/balance', { params: { phone: props.account.phone } })
     if (data.success) balance.value = data.balance
-  } catch {} finally { checking.value = false }
+  } catch (e) { console.warn("queryBalance:", e?.message) } finally { checking.value = false }
 }
 
 async function save() {
@@ -119,7 +119,7 @@ onMounted(async () => {
         if (hasKey.value) setTimeout(queryBalance, 500)
         return
       }
-    } catch {}
+    } catch (e) { console.warn("loadConfig:", e?.message) }
   }
   // 无本地存储的 API Key 回填
   form.value.deepseekModel = 'deepseek-v4-flash'
