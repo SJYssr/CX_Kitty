@@ -89,7 +89,9 @@ npm test
 ```
 ├── src/                    # 核心引擎
 │   ├── core/
-│   │   ├── chaoxing.js     # 超星 API 主类（登录/课程/视频/答题）
+│   │   ├── chaoxing.js     # 超星 API 主类（登录/课程等）
+│   │   ├── video-handler.js# 视频处理（心跳/状态）
+│   │   ├── work-handler.js # 答题处理（获取/提交）
 │   │   ├── session.js      # Cookie 会话管理
 │   │   ├── cipher.js       # 超星加密算法
 │   │   ├── ratelimiter.js  # 限流器
