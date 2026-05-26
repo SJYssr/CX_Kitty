@@ -246,7 +246,23 @@ router.get('/study/logs-db/:taskId', async (req, res) => {
       'SELECT time, text FROM task_logs WHERE task_id = ? ORDER BY id ASC',
       [req.params.taskId]
     );
-    res.json({ success: true, logs: rows });
+    if (rows.length > 0) {
+      return res.json({ success: true, logs: rows });
+    }
+    // 没有独立日志 → 从 progress 字段读取
+    const [tasks] = await pool.query(
+      'SELECT progress FROM study_tasks WHERE id = ?',
+      [req.params.taskId]
+    );
+    if (tasks.length > 0 && tasks[0].progress && tasks[0].progress !== 'NULL') {
+      try {
+        const p = JSON.parse(tasks[0].progress);
+        if (Array.isArray(p.logs)) {
+          return res.json({ success: true, logs: p.logs });
+        }
+      } catch {}
+    }
+    res.json({ success: true, logs: [] });
   } catch (err) {
     res.json({ success: false, message: err.message, logs: [] });
   }
