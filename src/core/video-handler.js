@@ -28,6 +28,15 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     return StudyResult.SUCCESS;
   }
 
+  // 加载时从 cx 获取终止检查函数
+  const _isTerminated = () => cx.__terminated === true;
+
+  // 检查是否被终止
+  if (_isTerminated()) {
+    logger.info(`${job.name || '视频'} 任务已终止，跳过`);
+    return StudyResult.SUCCESS;
+  }
+
   const status = await _getVideoStatus(cx, job.objectid);
   if (!status) {
     logger.error(`无法获取视频状态: ${job.name}`);
@@ -67,8 +76,19 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
   let currentDtoken = dtoken;
 
   while (true) {
+    // 每次循环检查是否被终止
+    if (_isTerminated()) {
+      logger.warn(`${jobName} 任务已终止，退出视频循环`);
+      return StudyResult.SUCCESS;
+    }
+
     if ((playTime - lastLogTime >= waitTime) || playTime >= duration) {
       const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
+      // 任务被中止
+      if (result.status === -1) {
+        logger.warn(`${jobName} 任务已中止，退出视频循环`);
+        return StudyResult.SUCCESS;
+      }
       if (result.status === 403) {
         forbiddenCount++;
         if (forbiddenCount > maxForbidden) { logger.warn(`${jobName} 403 恢复失败`); return StudyResult.FORBIDDEN; }
@@ -141,6 +161,10 @@ export async function videoProgressLog(cx, course, job, jobInfo, dtoken, duratio
       const resp = await cx.axios.get(baseUrl, { params, headers: cfg.videoHeaders, timeout: 15000 });
       if (resp.status === 200) return { passed: resp.data && resp.data.isPassed === true, status: 200 };
     } catch (err) {
+      // 任务被中止时提前退出
+      if (err.code === 'ERR_CANCELED' || err.code === 'ERR_ABORTED' || err.name === 'CanceledError') {
+        return { passed: false, status: -1 }; // status=-1 表示中止
+      }
       if (err.response && err.response.status === 403) continue;
       return { passed: false, status: err.response ? err.response.status : 0 };
     }
