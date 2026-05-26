@@ -14,8 +14,15 @@ const account = ref(null)
 
 async function onLogin(data) {
   account.value = data
+  // 登录后从服务端加载配置（答题开关等）
+  try {
+    const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
+    if (cfg.success && cfg.config) {
+      account.value = { ...data, ...cfg.config }
+    }
+  } catch {}
   // 不存储密码到 localStorage
-  const { password, ...safe } = data
+  const { password, ...safe } = account.value
   localStorage.setItem('cx_account', JSON.stringify(safe))
   page.value = 'dashboard'
 }

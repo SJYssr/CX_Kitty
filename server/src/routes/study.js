@@ -64,25 +64,26 @@ router.post('/courses', async (req, res) => {
 router.post('/study/start', async (req, res) => {
   try {
     const {
-      phone, password, courseIds,
-      autoSubmit = false, enableAnswering = true
+      phone, password, courseIds
     } = req.body;
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    // 查 account，获取服务端保存的 DeepSeek API Key
+    // 从 DB 读取账号配置（答题开关、自动提交、DeepSeek Key）
     let [accounts] = await pool.query(
-      'SELECT id, deepseek_api_key FROM accounts WHERE phone = ?', [phone]
+      'SELECT id, deepseek_api_key, enable_answering, auto_submit FROM accounts WHERE phone = ?', [phone]
     );
     if (!accounts.length) {
       const [insertRes] = await pool.query(
         'INSERT INTO accounts (phone, password, status) VALUES (?, ?, ?)',
         [phone, password, 'active']
       );
-      accounts = [{ id: insertRes.insertId, deepseek_api_key: '' }];
+      accounts = [{ id: insertRes.insertId, deepseek_api_key: '', enable_answering: 1, auto_submit: 0 }];
     }
 
     const deepseekApiKey = accounts[0].deepseek_api_key || '';
+    const enableAnswering = accounts[0].enable_answering !== 0;
+    const autoSubmit = !!accounts[0].auto_submit;
 
     // 如果开启了答题但没有 API Key，返回错误
     if (enableAnswering && !deepseekApiKey) {
