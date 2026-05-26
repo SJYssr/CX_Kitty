@@ -12,6 +12,11 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "morgan": "^1.10.0",
-    "mysql2": "^3.6.5"
+    "mysql2": "^3.6.5",
+    "axios": "^1.7.0",
+    "axios-cookiejar-support": "^7.0.0",
+    "tough-cookie": "^6.0.1",
+    "svg-captcha": "^1.4.0",
+    "nodemailer": "^8.0.9"
   }
 }
