@@ -948,6 +948,14 @@ export class Chaoxing {
         const r = String(rawAnswer).trim();
         if (!r) return '';
 
+        // 如果答案已经是字母格式（仅A-Z、逗号、空格），直接处理
+        const letterOnly = r.replace(/[,，、\s]/g, '');
+        if (/^[A-Za-z]+$/.test(letterOnly)) {
+          const letters = [...new Set(letterOnly.toUpperCase().split(''))].sort().join(',');
+          if (q.type === 'multiple') return letters;
+          if (q.type === 'single') return letterOnly.toUpperCase().charAt(0) || '';
+        }
+
         if (q.type === 'multiple') {
           const optList = multi_cut(q.options);
           const ansList = multi_cut(r);
