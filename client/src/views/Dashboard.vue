@@ -404,15 +404,13 @@ async function loadTasks() {
     })
     if (data.success) {
       tasks.value = data.tasks
-      // If no currentTask or currentTask is finished, show latest task
-      if (!currentTask.value || ['completed','failed','terminated'].includes(currentTask.value.status)) {
+      // If no currentTask or currentTask is finished, check for latest running
+      if (!currentTask.value || ['completed','failed'].includes(currentTask.value.status)) {
         const running = data.tasks.find(t => t.status === 'running')
         if (running) {
           currentTask.value = running
           startPolling(running.id)
-        } else if (data.tasks.length > 0) {
-          // 无运行中任务时显示最新一条历史任务
-          currentTask.value = data.tasks[0]
+        }
       }
     }
   } catch {} finally { loadingTasks.value = false }
@@ -508,14 +506,12 @@ onMounted(() => {
   }).then(r => {
     if (!r.data.success || !r.data.tasks?.length) return
     const latest = r.data.tasks[0]
+    // 仅在任务进行中时显示进度卡片
     if (latest.status === 'running') {
       currentTask.value = latest
       startPolling(latest.id)
-    } else {
-      // 非运行中的任务也显示进度, 方便查看历史
-      currentTask.value = latest
     }
-    // Notification for completed/failed tasks (only once per task)
+    // Notification for completed tasks (only once per task)
     if (['completed','failed'].includes(latest.status)) {
       if (lastNotice !== String(latest.id)) {
         localStorage.setItem('cx_last_task_notice', String(latest.id))
