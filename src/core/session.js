@@ -9,6 +9,7 @@ import { CookieJar } from 'tough-cookie';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_FILE = path.resolve(__dirname, '../../cookies.json');
@@ -87,7 +88,7 @@ export class SessionManager {
       const uidCookie = cookies.find(c => c.key === '_uid');
       if (uidCookie) this._uid = uidCookie.value;
     } catch (_) {
-      // 文件损坏则忽略
+      logger.warn('Cookie 文件读取失败: ' + (_.message || _));
     }
   }
 
@@ -101,7 +102,7 @@ export class SessionManager {
       const uidCookie = cookies.find(c => c.key === '_uid');
       if (uidCookie) this._uid = uidCookie.value;
     } catch (_) {
-      // 写入失败忽略
+      logger.warn('Cookie 文件写入失败: ' + (_.message || _));
     }
   }
 }

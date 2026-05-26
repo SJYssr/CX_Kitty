@@ -1,0 +1,31 @@
+-- CX_Kitty 数据库初始化脚本
+-- 用于 Docker 首次启动时建表
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  phone VARCHAR(20) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  name VARCHAR(100) DEFAULT '',
+  deepseek_api_key VARCHAR(255) DEFAULT '',
+  deepseek_model VARCHAR(50) DEFAULT 'deepseek-v4-flash',
+  enable_answering TINYINT(1) DEFAULT 1,
+  auto_submit TINYINT(1) DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS study_tasks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  account_id INT NOT NULL,
+  course_ids JSON DEFAULT NULL,
+  speed INT DEFAULT 1,
+  jobs INT DEFAULT 3,
+  status VARCHAR(20) DEFAULT 'pending',
+  progress JSON DEFAULT NULL,
+  error TEXT DEFAULT NULL,
+  started_at DATETIME DEFAULT NULL,
+  finished_at DATETIME DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_account_status (account_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -3,6 +3,8 @@
  * @module decoders/course-card
  */
 
+import logger from '../utils/logger.js';
+
 /**
  * 从 HTML 中提取 mArg JSON 并解析为任务列表
  * @param {string} html — 知识卡片页面 HTML
@@ -22,6 +24,7 @@ export function parseCourseCard(html) {
   try {
     data = JSON.parse(m[1]);
   } catch (_) {
+    logger.warn('课程卡片 mArg JSON 解析失败: ' + (_.message || _));
     return { jobs: [], jobInfo: null, notOpen: false };
   }
 

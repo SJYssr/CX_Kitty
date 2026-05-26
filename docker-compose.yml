@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-cxkitty_pass}
+      MYSQL_DATABASE: ${DB_NAME:-cx_kitty}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./server/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "${DB_PORT:-3307}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cx_kitty_net
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-cxkitty_pass}
+      DB_NAME: ${DB_NAME:-cx_kitty}
+      PORT: 3001
+    volumes:
+      - cx_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cx_kitty_net
+
+volumes:
+  mysql_data:
+  cx_data:
+
+networks:
+  cx_kitty_net:
+    driver: bridge

@@ -425,8 +425,6 @@ async function start() {
       courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
       speed: 1,
       jobs: 1,
-      deepseekApiKey: props.account.deepseekApiKey || '',
-      deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
       enableAnswering: props.account.enableAnswering !== false,
       autoSubmit: !!props.account.autoSubmit
     })
@@ -462,8 +460,6 @@ async function rerunTask(task) {
       courseIds,
       speed: 1,
       jobs: 1,
-      deepseekApiKey: props.account.deepseekApiKey || '',
-      deepseekModel: props.account.deepseekModel || 'deepseek-v4-flash',
       enableAnswering: props.account.enableAnswering !== false,
       autoSubmit: !!props.account.autoSubmit
     })

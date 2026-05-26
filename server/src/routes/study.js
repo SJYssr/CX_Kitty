@@ -65,21 +65,28 @@ router.post('/study/start', async (req, res) => {
   try {
     const {
       phone, password, courseIds,
-      deepseekApiKey = '', autoSubmit = false, enableAnswering = true
+      autoSubmit = false, enableAnswering = true
     } = req.body;
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
-    // 查/创建 account
+    // 查 account，获取服务端保存的 DeepSeek API Key
     let [accounts] = await pool.query(
-      'SELECT id FROM accounts WHERE phone = ?', [phone]
+      'SELECT id, deepseek_api_key FROM accounts WHERE phone = ?', [phone]
     );
     if (!accounts.length) {
       const [insertRes] = await pool.query(
-        'INSERT INTO accounts (phone, password, deepseek_api_key, status) VALUES (?, ?, ?, ?)',
-        [phone, password, deepseekApiKey || '', 'active']
+        'INSERT INTO accounts (phone, password, status) VALUES (?, ?, ?)',
+        [phone, password, 'active']
       );
-      accounts = [{ id: insertRes.insertId }];
+      accounts = [{ id: insertRes.insertId, deepseek_api_key: '' }];
+    }
+
+    const deepseekApiKey = accounts[0].deepseek_api_key || '';
+
+    // 如果开启了答题但没有 API Key，返回错误
+    if (enableAnswering && !deepseekApiKey) {
+      return res.json({ success: false, message: '请先在配置中设置 DeepSeek API Key 后再启动刷课' });
     }
 
     // 终止该账号所有正在运行的任务

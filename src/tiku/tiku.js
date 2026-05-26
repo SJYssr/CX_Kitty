@@ -6,33 +6,89 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CACHE_FILE = path.resolve(__dirname, '../../cache.json');
+const DATA_DIR = path.resolve(__dirname, '../../data');
+
+// 确保 data 目录存在
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+    logger.warn('创建 data 目录失败: ' + e.message);
+  }
+}
+
+const CACHE_DB = path.resolve(DATA_DIR, 'cache.db');
 
 // ===================== CacheDAO =====================
 
 /**
- * JSON 文件缓存 DAO
- * 线程安全 — 每次读写都读文件 + 原子写入
+ * SQLite 缓存 DAO
+ * 线程安全 — better-sqlite3 WAL 模式支持并发读写
  */
 export class CacheDAO {
   /**
-   * @param {string} [file] — 缓存文件路径，默认 cache.json
+   * @param {string} [dbPath] — 数据库文件路径，默认 data/cache.db
    */
-  constructor(file = CACHE_FILE) {
-    this.file = file;
+  constructor(dbPath) {
+    this._dbPath = dbPath || CACHE_DB;
+    this._db = null;
+    this._init();
+  }
+
+  /** @private */
+  _init() {
+    if (this._db) return;
+    try {
+      // 动态 import 解决 ESM 兼容
+      const Database = require_better_sqlite3();
+      this._db = new Database(this._dbPath);
+      // WAL 模式，提升并发性能
+      this._db.pragma('journal_mode = WAL');
+      this._db.pragma('synchronous = NORMAL');
+
+      // 建表
+      this._db.exec(`
+        CREATE TABLE IF NOT EXISTS answer_cache (
+          key TEXT PRIMARY KEY,
+          answer TEXT NOT NULL,
+          type TEXT,
+          created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+      `);
+
+      // 自动清理：超过 10000 条时删除最旧的 2000 条
+      const count = this._db.prepare('SELECT COUNT(*) AS cnt FROM answer_cache').get();
+      if (count.cnt > 10000) {
+        this._db.prepare(
+          `DELETE FROM answer_cache WHERE rowid IN (
+            SELECT rowid FROM answer_cache ORDER BY created_at ASC LIMIT 2000
+          )`
+        ).run();
+        logger.info('缓存清理: 删除 ' + 2000 + ' 条旧记录');
+      }
+    } catch (e) {
+      logger.error('CacheDAO 初始化失败: ' + e.message);
+      throw e;
+    }
   }
 
   /**
    * 从缓存获取答案
    * @param {{ title: string, options: string[], type: string }} question
-   * @returns {Promise<Object|null>}
+   * @returns {Object|null}
    */
-  async get(question) {
+  get(question) {
     const key = this._makeKey(question);
-    const cache = this._readCache();
-    return cache[key] || null;
+    try {
+      const row = this._db.prepare('SELECT answer FROM answer_cache WHERE key = ?').get(key);
+      return row ? JSON.parse(row.answer) : null;
+    } catch (e) {
+      logger.warn('缓存读取失败: ' + e.message);
+      return null;
+    }
   }
 
   /**
@@ -40,11 +96,29 @@ export class CacheDAO {
    * @param {{ title: string, options: string[], type: string }} question
    * @param {Object} answer
    */
-  async set(question, answer) {
+  set(question, answer) {
     const key = this._makeKey(question);
-    const cache = this._readCache();
-    cache[key] = answer;
-    this._writeCache(cache);
+    try {
+      this._db.prepare(
+        'INSERT OR REPLACE INTO answer_cache (key, answer, type) VALUES (?, ?, ?)'
+      ).run(key, JSON.stringify(answer), question.type || '');
+    } catch (e) {
+      logger.warn('缓存写入失败: ' + e.message);
+    }
+  }
+
+  /**
+   * 关闭数据库连接
+   */
+  close() {
+    try {
+      if (this._db) {
+        this._db.close();
+        this._db = null;
+      }
+    } catch (e) {
+      logger.warn('关闭数据库失败: ' + e.message);
+    }
   }
 
   /** @private */
@@ -52,23 +126,12 @@ export class CacheDAO {
     const title = (question.title || '').replace(/\s+/g, '');
     return `${title}::${(question.options || []).join('|')}`;
   }
+}
 
-  /** @private */
-  _readCache() {
-    try {
-      if (fs.existsSync(this.file)) {
-        return JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      }
-    } catch (_) {}
-    return {};
-  }
-
-  /** @private */
-  _writeCache(data) {
-    try {
-      fs.writeFileSync(this.file, JSON.stringify(data, null, 2), 'utf8');
-    } catch (_) {}
-  }
+/** @private 内联 require 兼容 better-sqlite3 ESM 加载 */
+function require_better_sqlite3() {
+  // eslint-disable-next-line no-eval
+  return eval('require')('better-sqlite3');
 }
 
 // ===================== Tiku 基类 =====================
@@ -142,7 +205,7 @@ export class Tiku {
         }
       }
     } catch (_) {
-      // 查询失败返回 null
+      logger.warn('AI 查询失败: ' + (_.message || _));
     }
 
     return null;

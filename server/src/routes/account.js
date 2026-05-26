@@ -42,7 +42,7 @@ router.post('/account/save', async (req, res) => {
   }
 });
 
-// 获取账号配置（含 AI 配置）
+// 获取账号配置（含 AI 配置）— 不再返回明文 API Key
 router.get('/account/config', async (req, res) => {
   try {
     const phone = req.query.phone;
@@ -54,13 +54,19 @@ router.get('/account/config', async (req, res) => {
     );
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
 
+    const key = rows[0].deepseek_api_key || '';
+    const masked = key.length > 8 ? key.slice(0, 5) + '****' + key.slice(-4) : key ? 'sk-****' : '';
+
     res.json({
       success: true,
       config: {
-        ...rows[0],
-        deepseek_api_key: rows[0].deepseek_api_key || '',
+        id: rows[0].id,
+        phone: rows[0].phone,
+        deepseek_model: rows[0].deepseek_model || 'deepseek-v4-flash',
         enable_answering: !!rows[0].enable_answering,
-        auto_submit: !!rows[0].auto_submit
+        auto_submit: !!rows[0].auto_submit,
+        has_deepseek_key: !!key,
+        deepseek_key_masked: masked
       }
     });
   } catch (err) {

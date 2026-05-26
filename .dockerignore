@@ -1,0 +1,9 @@
+node_modules
+.git
+.cache
+cache.json
+data/*.db
+client/dist
+.env
+*.md
+.gitignore

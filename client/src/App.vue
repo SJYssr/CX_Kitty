@@ -17,13 +17,6 @@ async function onLogin(data) {
   // 不存储密码到 localStorage
   const { password, ...safe } = data
   localStorage.setItem('cx_account', JSON.stringify(safe))
-  try {
-    const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
-    if (cfg.success && cfg.config?.deepseek_api_key) {
-      account.value = { ...data, ...cfg.config }
-      localStorage.setItem('cx_account', JSON.stringify({ ...safe, ...cfg.config }))
-    }
-  } catch {}
   page.value = 'dashboard'
 }
 

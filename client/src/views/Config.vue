@@ -5,7 +5,13 @@
 
       <el-form label-position="top" size="small" class="config-form">
         <el-form-item label="DeepSeek API Key">
-          <el-input v-model="form.deepseekApiKey" type="password" placeholder="sk-..." show-password @input="onKeyChange" />
+          <div v-if="hasKey && !editingKey" class="key-status">
+            <span class="key-masked">{{ maskedKey }}</span>
+            <el-button size="small" @click="editingKey = true">修改</el-button>
+            <el-button size="small" @click="queryBalance">查余额</el-button>
+          </div>
+          <el-input v-else v-model="form.deepseekApiKey" type="password" placeholder="sk-..." show-password />
+          <div v-if="editingKey && !form.deepseekApiKey" class="key-hint">留空则不修改已有 Key</div>
         </el-form-item>
 
         <!-- 余额 -->
@@ -53,39 +59,44 @@ const saving = ref(false)
 const checking = ref(false)
 const balance = ref(null)
 const error = ref('')
+const hasKey = ref(false)
+const maskedKey = ref('')
+const editingKey = ref(false)
 
 const form = ref({
   deepseekApiKey: '',
   deepseekModel: 'deepseek-v4-flash',
   enableAnswering: true,
   autoSubmit: false,
-
 })
 
-let timer = null
-
-function onKeyChange(val) {
-  if (timer) clearTimeout(timer)
+async function queryBalance() {
+  checking.value = true
   balance.value = null
-  if (!val || val.length < 10) return
-  timer = setTimeout(async () => {
-    checking.value = true
-    try {
-      const { data } = await axios.get('/api/balance', { params: { key: val } })
-      if (data.success) balance.value = data.balance
-    } catch {} finally { checking.value = false }
-  }, 600)
+  try {
+    const { data } = await axios.get('/api/balance', { params: { phone: props.account.phone } })
+    if (data.success) balance.value = data.balance
+  } catch {} finally { checking.value = false }
 }
 
 async function save() {
   saving.value = true
   error.value = ''
   try {
-    await axios.post('/api/account/save', {
+    const body = {
       phone: props.account.phone,
       password: props.account.password,
-      ...form.value
-    })
+      deepseekModel: form.value.deepseekModel,
+      enableAnswering: form.value.enableAnswering,
+      autoSubmit: form.value.autoSubmit
+    }
+    // 仅在用户编辑时发送 API Key（修改或首次设置）
+    if (editingKey.value && form.value.deepseekApiKey) {
+      body.deepseekApiKey = form.value.deepseekApiKey
+    } else if (!hasKey.value && form.value.deepseekApiKey) {
+      body.deepseekApiKey = form.value.deepseekApiKey
+    }
+    await axios.post('/api/account/save', body)
     emit('enter', form.value)
     emit('close')
   } catch (e) {
@@ -99,23 +110,21 @@ onMounted(async () => {
     try {
       const { data } = await axios.get('/api/account/config', { params: { phone: props.account.phone } })
       if (data.success && data.config) {
-        form.value.deepseekApiKey = data.config.deepseek_api_key || ''
+        hasKey.value = data.config.has_deepseek_key || false
+        maskedKey.value = data.config.deepseek_key_masked || ''
         form.value.deepseekModel = data.config.deepseek_model || 'deepseek-v4-flash'
         form.value.enableAnswering = data.config.enable_answering !== false
         form.value.autoSubmit = !!data.config.auto_submit
-        if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
+        // 不填充 API Key 到表单，只在有 key 时自动查余额
+        if (hasKey.value) setTimeout(queryBalance, 500)
         return
       }
     } catch {}
   }
-  // 从 localStorage 回填
-  if (props.account) {
-    form.value.deepseekApiKey = props.account.deepseekApiKey || ''
-    form.value.deepseekModel = props.account.deepseekModel || 'deepseek-v4-flash'
-    form.value.enableAnswering = props.account.enableAnswering !== false
-    form.value.autoSubmit = !!props.account.autoSubmit
-    if (form.value.deepseekApiKey) onKeyChange(form.value.deepseekApiKey)
-  }
+  // 无本地存储的 API Key 回填
+  form.value.deepseekModel = 'deepseek-v4-flash'
+  form.value.enableAnswering = true
+  form.value.autoSubmit = false
 })
 </script>
 
@@ -157,5 +166,8 @@ h1 { font-size: 22px; color: #fff; text-align: center; margin-bottom: 4px; }
 .balance-box.checking { background: #f4f4f5; color: #909399; justify-content: center; }
 .balance-val { font-weight: 600; color: #67c23a; }
 .balance-val.low { color: #e6a23c; }
+.key-status { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.key-masked { font-family: monospace; color: rgba(255,255,255,0.7); font-size: 13px; }
+.key-hint { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 4px; }
 
 </style>

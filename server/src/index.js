@@ -25,12 +25,20 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'OK', time: new Date().toISOString() });
 });
 
-// DeepSeek 余额查询
+// DeepSeek 余额查询（使用服务端保存的 API Key，不上传到前端）
 app.get('/api/balance', async (req, res) => {
   try {
-    const apiKey = req.query.key;
-    if (!apiKey) return res.json({ success: false, message: '缺少 API Key' });
+    const phone = req.query.phone;
+    if (!phone) return res.json({ success: false, message: '缺少手机号' });
 
+    const [rows] = await pool.query(
+      'SELECT deepseek_api_key FROM accounts WHERE phone = ?', [phone]
+    );
+    if (!rows.length || !rows[0].deepseek_api_key) {
+      return res.json({ success: false, message: '未找到 API Key', balance: 0 });
+    }
+
+    const apiKey = rows[0].deepseek_api_key;
     const resp = await fetch('https://api.deepseek.com/user/balance', {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
@@ -40,9 +48,8 @@ app.get('/api/balance', async (req, res) => {
     }
 
     const data = await resp.json();
-    // 取 topped_up_balance
     const balance = data.balance_infos?.reduce((sum, b) => sum + parseFloat(b.topped_up_balance || 0), 0) || 0;
-    res.json({ success: true, balance, raw: data });
+    res.json({ success: true, balance });
   } catch (err) {
     res.json({ success: false, message: err.message, balance: 0 });
   }
@@ -72,7 +79,9 @@ pool.query(
   if (r[0]?.affectedRows > 0) {
     console.log(`  清理了 ${r[0].affectedRows} 个残留的 running 任务`);
   }
-}).catch(() => {});
+}).catch(e => {
+  console.warn('  清理残留任务失败:', e.message);
+});
 
 app.listen(PORT, () => {
   console.log(`🐱 CX_Kitty Server → http://localhost:${PORT}`);

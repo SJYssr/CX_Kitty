@@ -393,6 +393,7 @@ export class Chaoxing {
           // 最多尝试到 num=5
         }
       } catch (_) {
+        logger.warn('获取 course point 任务失败: ' + (_.message || _));
         break;
       }
     }
@@ -886,6 +887,7 @@ export class Chaoxing {
             answers.push({ q, answer: null, found: false });
           }
         } catch (_) {
+          logger.warn('答题查询失败: ' + (_.message || _));
           answers.push({ q, answer: null, found: false });
         }
       }
@@ -978,6 +980,7 @@ export class Chaoxing {
       );
       return StudyResult.SUCCESS;
     } catch (_) {
+      logger.warn('空章节标记失败: ' + (_.message || _));
       return StudyResult.ERROR;
     }
   }
