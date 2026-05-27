@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import cfg from '../config.js';
 import logger from '../utils/logger.js';
 
 const _require = createRequire(import.meta.url);
@@ -62,15 +63,15 @@ export class CacheDAO {
         )
       `);
 
-      // 自动清理：超过 10000 条时删除最旧的 2000 条
+      // 自动清理：超过阈值时删除最旧的记录
       const count = this._db.prepare('SELECT COUNT(*) AS cnt FROM answer_cache').get();
-      if (count.cnt > 10000) {
+      if (count.cnt > cfg.cacheMaxRecords) {
         this._db.prepare(
           `DELETE FROM answer_cache WHERE rowid IN (
-            SELECT rowid FROM answer_cache ORDER BY created_at ASC LIMIT 2000
+            SELECT rowid FROM answer_cache ORDER BY created_at ASC LIMIT ?
           )`
-        ).run();
-        logger.info('缓存清理: 删除 ' + 2000 + ' 条旧记录');
+        ).run(cfg.cachePruneCount);
+        logger.info('缓存清理: 删除 ' + cfg.cachePruneCount + ' 条旧记录');
       }
     } catch (e) {
       logger.error('CacheDAO 初始化失败: ' + e.message);

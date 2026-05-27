@@ -1,6 +1,6 @@
 /**
  * Chaoxing API 总类 — 登录、课程、视频、答题等核心功能
- * 方法由各模块 mixin 注入: auth.js / course.js / video.js
+ * 方法委托给独立模块: auth.js / course.js / video.js
  * @module core/chaoxing
  */
 
@@ -10,9 +10,8 @@ import { studyVideo as videoHandler } from './video-handler.js';
 import { studyWork as workHandler } from './work-handler.js';
 import { RateLimiter } from './ratelimiter.js';
 import { StudyResult } from './study-result.js';
-import { applyAuth } from './auth.js';
-import { applyCourse } from './course.js';
-import { applyVideo } from './video.js';
+import { login, getUserInfo, getUid, getFid } from './auth.js';
+import { getCourseList, getCoursePoint, getJobList } from './course.js';
 import logger from '../utils/logger.js';
 import cfg from '../config.js';
 
@@ -29,8 +28,8 @@ export class Chaoxing {
   constructor(account, tiku, options = {}) {
     this.account = account;
     this.tiku = tiku || null;
-    this.speed = options.speed || 1;
-    this.jobs = options.jobs || 3;
+    this.speed = options.speed || cfg.defaultSpeed;
+    this.jobs = options.jobs || cfg.defaultJobs;
     this.notopenAction = options.notopenAction || 'continue';
 
     // 支持传入独立 session（多账号并发时使用）
@@ -44,7 +43,7 @@ export class Chaoxing {
 
     // 网络错误自动重试拦截器
     if (this.axios) {
-      const MAX = 3;
+      const MAX = cfg.maxRetries;
       this.axios.interceptors.response.use(
         r => r,
         async err => {
@@ -54,7 +53,7 @@ export class Chaoxing {
           const retryable = !err.response || err.code === 'ECONNABORTED' || err.code === 'ECONNRESET' || (err.response && err.response.status >= 500);
           if (retryable && reqCfg._retry < MAX) {
             reqCfg._retry++;
-            await new Promise(r => setTimeout(r, reqCfg._retry * 1500 + Math.random() * 1000));
+            await new Promise(r => setTimeout(r, reqCfg._retry * cfg.retryBaseDelay + Math.random() * 1000));
             return this.axios(reqCfg);
           }
           throw err;
@@ -62,7 +61,7 @@ export class Chaoxing {
       );
     }
 
-    this.rateLimiter = new RateLimiter(1200);
+    this.rateLimiter = new RateLimiter(cfg.rateLimit);
     if (options.fastMode) this.rateLimiter.setFastMode(true);
     if (options._globalThrottle) {
       this._globalThrottle = options._globalThrottle;
@@ -91,6 +90,19 @@ export class Chaoxing {
   getTimestamp() {
     return getTimestamp();
   }
+
+  // ===================== Auth（委托给 auth.js） =====================
+
+  async login(...args) { return login(this, ...args); }
+  async getUserInfo(...args) { return getUserInfo(this, ...args); }
+  async getUid() { return getUid(this); }
+  getFid() { return getFid(this); }
+
+  // ===================== Course（委托给 course.js） =====================
+
+  async getCourseList() { return getCourseList(this); }
+  async getCoursePoint(courseId, clazzId, cpi) { return getCoursePoint(this, courseId, clazzId, cpi); }
+  async getJobList(course, point) { return getJobList(this, course, point); }
 
   // ===================== 学习任务（委托给独立 handler） =====================
 
@@ -181,8 +193,3 @@ export class Chaoxing {
     return '0';
   }
 }
-
-// Apply mixin modules (auth, course, video)
-applyAuth(Chaoxing);
-applyCourse(Chaoxing);
-applyVideo(Chaoxing);

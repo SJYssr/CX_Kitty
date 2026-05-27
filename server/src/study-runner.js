@@ -10,6 +10,7 @@ import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
 import { sendTaskComplete } from '../../src/notify/email.js';
 import { Account } from './models/account.js';
 import { StudyTask } from './models/study-task.js';
+import cfg from '../../src/config.js';
 import bus from './log-bus.js';
 
 /**
@@ -26,14 +27,19 @@ import bus from './log-bus.js';
  * @param {Object} params.pool — mysql2/promise pool
  */
 // 全局节流器 — 所有任务共用，控制对超星的整体请求频率
-const GLOBAL_THROTTLE = new RateLimiter(200);
+const GLOBAL_THROTTLE = new RateLimiter(cfg.globalThrottle);
 
 export async function runStudy(params) {
   const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId } = params;
 
   let _terminated = false;
-  // 写进度锁 — 防止并发 writeProgress 互相覆盖
   let _progressLock = Promise.resolve();
+
+  const abortController = new AbortController();
+  bus.once('terminate:' + taskId, () => {
+    _terminated = true;
+    abortController.abort();
+  });
 
   const updateStatus = async (status, progress) => {
     try {
@@ -59,20 +65,6 @@ export async function runStudy(params) {
     } finally {
       release();
     }
-  };
-
-  // 检查任务是否被终止（新任务替换了旧任务时）
-  const checkTerminated = async () => {
-    if (_terminated) return true;
-    try {
-      const [rows] = await StudyTask.getStatus(taskId);
-      if (rows.length > 0 && rows[0].status === 'terminated') {
-        _terminated = true;
-        abortController.abort();
-        return true;
-      }
-      return false;
-    } catch (e) { console.warn('checkTerminated 失败: ' + (e.message || e)); return false; }
   };
 
   const readProgress = async () => {
@@ -133,7 +125,6 @@ export async function runStudy(params) {
     })() : null;
 
     // 每个任务创建独立的 session，避免串号
-    const abortController = new AbortController();
     const chaoxing = createStandalone({ phone, password }, {
       tiku,
       globalThrottle: GLOBAL_THROTTLE
@@ -154,6 +145,8 @@ export async function runStudy(params) {
       return;
     }
 
+    if (_terminated) return;
+
     const allCourses = await chaoxing.getCourseList();
 
     // 用户没选课 → 不刷，直接完成
@@ -165,7 +158,6 @@ export async function runStudy(params) {
     // 筛选用户选择的课程
     let targetCourses = allCourses.filter(c => courseIds.includes(c.courseId));
     if (targetCourses.length === 0) {
-      // 一个都没匹配上 → 不刷
       await updateStatus('completed', JSON.stringify({ note: '所选课程ID无效，请重新选择' }));
       return;
     }
@@ -173,16 +165,17 @@ export async function runStudy(params) {
     for (let ci = 0; ci < targetCourses.length; ci++) {
       const course = targetCourses[ci];
 
-      // 课程间随机延迟 10-30 秒前检查是否被终止
+      // 课程间随机延迟 10-30 秒
       if (ci > 0) {
-        if (await checkTerminated()) return;
+        if (_terminated) return;
         const delay = 10000 + Math.floor(Math.random() * 20000);
         await new Promise(r => setTimeout(r, delay));
       }
 
-      // 每次 getCoursePoint 后检查是否被终止
+      if (_terminated) return;
+
       const { points } = await chaoxing.getCoursePoint(course.courseId, course.clazzId, course.cpi);
-      if (await checkTerminated()) return;
+      if (_terminated) return;
       if (!points.length) continue;
 
       // 立即写入初始进度，让前端尽早显示 "0/N 章节"

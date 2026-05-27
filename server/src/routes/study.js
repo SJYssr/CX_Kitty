@@ -82,6 +82,7 @@ router.post('/study/terminate/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     await StudyTask.terminateById(taskId);
+    bus.emit('terminate:' + taskId);
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });

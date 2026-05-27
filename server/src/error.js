@@ -1,5 +1,5 @@
 /**
- * 错误消息清洗 — 隐藏内部细节，返回对用户友好的错误信息
+ * 错误消息清洗 — 使用 denylist 隐藏内部敏感信息
  */
 
 const RAW_PATTERNS = [
@@ -18,16 +18,26 @@ const RAW_PATTERNS = [
   [/socket hang up/i, '网络连接中断'],
 ];
 
-// 已知的安全错误消息正则（不含敏感路径/IP/SQL）
-const SAFE_MSG_RE = /^(验证码|登录|注册|课程|任务|账号|邮箱|密码|手机号|网络|数据库|文件|格式|配置|权限|余额)/;
+const SENSITIVE_PATTERNS = [
+  /\/home\//, /\/root\//, /\/etc\//, /\/var\//,
+  /SELECT\s.*\bFROM\b/i, /\bINSERT\s+INTO\b/i, /\bDROP\s+/i,
+  /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/,
+  /ER_\w+/,
+  /at\s+\S+\s+\(.*:\d+:\d+\)/,
+  /password/i, /token/i, /secret/i,
+];
 
 export function sanitizeError(err) {
   if (!err) return '服务器错误';
   const msg = (typeof err === 'string' ? err : err.message) || '';
+
   for (const [pattern, friendly] of RAW_PATTERNS) {
     if (pattern.test(msg)) return friendly;
   }
-  // 只透传已知安全的消息，其余返回通用错误避免泄露内部细节
-  if (SAFE_MSG_RE.test(msg)) return msg;
-  return '服务器内部错误';
+
+  for (const pattern of SENSITIVE_PATTERNS) {
+    if (pattern.test(msg)) return '服务器内部错误';
+  }
+
+  return msg;
 }

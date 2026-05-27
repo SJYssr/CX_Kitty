@@ -20,5 +20,15 @@ export default {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": "\"Windows\""
   },
-  cookiePath: "./cookies.json"
+  cookiePath: "./cookies.json",
+
+  rateLimit: 1200,
+  globalThrottle: 200,
+  maxRetries: 3,
+  retryBaseDelay: 1500,
+  cacheMaxRecords: 10000,
+  cachePruneCount: 2000,
+  sessionTimeoutMs: 30 * 60 * 1000,
+  defaultJobs: 3,
+  defaultSpeed: 1
 };
