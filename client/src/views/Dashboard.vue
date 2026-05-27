@@ -18,7 +18,7 @@
               <span>课程列表</span>
               <el-button size="small" @click="loadCourses(true)" :loading="loadingCourses">刷新</el-button>
             </div>
-            <el-table ref="courseTableRef" :data="courses" stripe size="small" style="width:100%" @selection-change="onSelectionChange" @select-all="onSelectAll">
+            <el-table ref="courseTableRef" :data="courses" stripe size="small" height="400" style="width:100%" @selection-change="onSelectionChange" @select-all="onSelectAll">
               <el-table-column type="selection" width="40" />
               <el-table-column prop="title" label="课程" min-width="180" show-overflow-tooltip />
               <el-table-column prop="teacher" label="教师" width="100" />
