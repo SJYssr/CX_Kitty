@@ -4,6 +4,7 @@
       <p class="phone" v-if="!dialogMode">{{ account.phone }}</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="small" class="config-form">
+        <div class="card-scroll">
         <el-form-item label="DeepSeek API Key">
           <div v-if="hasKey && !editingKey" class="key-status">
             <span class="key-masked">{{ maskedKey }}</span>
@@ -44,7 +45,7 @@
         <el-form-item label="通知邮箱">
           <el-input v-model="form.notifyEmail" placeholder="用于接收刷课通知的邮箱" size="small" />
         </el-form-item>
-
+        </div>
 
         <el-button type="primary" size="large" style="width:100%;margin-top:12px" :loading="saving" @click="save">
           {{ saving ? '保存中...' : '保存配置' }}
@@ -179,12 +180,18 @@ onMounted(async () => {
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px; padding: 32px;
-  width: 100%; max-height: 40vh; overflow-y: auto;
+  border-radius: 0; padding: 32px;
+  width: 100%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   border: 1px solid rgba(255,255,255,0.2);
   text-align: center;
 }
+.card-scroll {
+  max-height: 40vh; overflow-y: auto; padding: 0 2px;
+}
+.card-scroll::-webkit-scrollbar { width: 6px; }
+.card-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+.card-scroll::-webkit-scrollbar-track { background: transparent; }
 .logo { font-size: 56px; margin-bottom: 8px; text-align: center; }
 h1 { font-size: 22px; color: #fff; text-align: center; margin-bottom: 4px; }
 .phone { text-align: center; color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 24px; }
