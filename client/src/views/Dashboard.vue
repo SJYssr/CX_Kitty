@@ -580,7 +580,7 @@ onUnmounted(() => {
   font-weight: 600; margin-bottom: 12px; color: #fff;
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
-.task-log-panel { max-height: 470px; display: flex; flex-direction: column; overflow: hidden; }
+.task-log-panel { height: 470px; display: flex; flex-direction: column; overflow: hidden; }
 .course-progress { flex-shrink: 0; }
 .log-container { flex: 1; min-height: 0; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
@@ -643,11 +643,14 @@ onUnmounted(() => {
 
 /* 滚动条统一风格 */
 .detail-course-list::-webkit-scrollbar,
-.el-table__body-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+.el-table__body-wrapper::-webkit-scrollbar,
+.log-container::-webkit-scrollbar { width: 6px; height: 6px; }
 .detail-course-list::-webkit-scrollbar-thumb,
-.el-table__body-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+.el-table__body-wrapper::-webkit-scrollbar-thumb,
+.log-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
 .detail-course-list::-webkit-scrollbar-track,
-.el-table__body-wrapper::-webkit-scrollbar-track { background: transparent; }
+.el-table__body-wrapper::-webkit-scrollbar-track,
+.log-container::-webkit-scrollbar-track { background: transparent; }
 
 /* 分页 */
 :deep(.el-pagination button) { background: transparent !important; color: rgba(255,255,255,0.7); }
