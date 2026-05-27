@@ -25,7 +25,7 @@ export class StudyTaskDAO {
   /** 查用户的任务列表（最新 2 条） */
   findByPhone(phone) {
     return this.pool.query(
-      'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks WHERE account_id = (SELECT id FROM accounts WHERE phone = ?) ORDER BY id DESC LIMIT 2',
+      'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks WHERE account_id = (SELECT id FROM accounts WHERE phone = ?) ORDER BY id DESC LIMIT 5',
       [phone]
     );
   }
@@ -33,7 +33,7 @@ export class StudyTaskDAO {
   /** 查所有任务（管理用，安全 LIMIT） */
   findAll() {
     return this.pool.query(
-      'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks ORDER BY id DESC LIMIT 2'
+      'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks ORDER BY id DESC LIMIT 5'
     );
   }
 
@@ -102,7 +102,7 @@ export class StudyTaskDAO {
 
   /** 获取用户最新 2 条任务 id */
   getRecentIds(accountId) {
-    return this.pool.query('SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2', [accountId]);
+    return this.pool.query('SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 5', [accountId]);
   }
 
   /** 删除账号的旧任务（保留最新 2 条） */
