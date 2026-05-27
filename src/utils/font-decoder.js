@@ -389,7 +389,7 @@ export function decodeFontText(text, ttfBuffer) {
     result += decodeMap[uniName] || char;
   }
 
-  // 康煕部首 → 标准汉字（Samueli924/chaoxing 移植）
+  // 康煕部首 → 标准汉字
   result = replaceKangxiRadicals(result);
 
   return result;

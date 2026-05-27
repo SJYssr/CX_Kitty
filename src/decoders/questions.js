@@ -41,7 +41,7 @@ export function parseQuestions(html) {
   const formData = {};
   const questions = [];
 
-  // 提取表单字段 (参考 chaoxing _extract_form_data: 所有 input 除了 answer 字段)
+  // 提取表单字段 (所有 input 除了 answer 字段)
   $('form input').each((_, el) => {
     const name = $(el).attr('name');
     if (!name || name.includes('answer')) return;

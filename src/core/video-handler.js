@@ -12,7 +12,7 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 /**
- * 处理视频任务 (参照 Python 版逻辑: 到达 duration 后发最后一次心跳即退出)
+ * 处理视频任务 (墙钟推进 + 1秒轮询 + 持续心跳直到服务端确认完成)
  * @param {import('./chaoxing.js').Chaoxing} cx — Chaoxing 实例
  * @param {Object} course
  * @param {Object} job
@@ -53,42 +53,49 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     return StudyResult.SUCCESS;
   }
 
-  // === 主循环 (参照 Python 版) ===
+  // === 主循环 (墙钟推进 + 1秒轮询 + 持续心跳直到服务端确认) ===
+  const THRESHOLD = 1;
   let playTime = Math.floor((job.playTime || 0) / 1000);
-  let isFinished = false;
+  let lastLogTime = 0;
+  let lastIter = Date.now() / 1000;
+  let waitTime = randomInt(30, 90);
   let currentDtoken = dtoken;
+  let passed = false;
 
   logger.info(`${jobName} 开始, 总时长: ${duration}秒`);
 
-  while (!isFinished) {
+  while (!passed) {
     if (_isTerminated()) return StudyResult.SUCCESS;
 
-    const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
-    if (result.status === -1) return StudyResult.SUCCESS;
-    if (result.status === 403) {
-      logger.warn(`${jobName} 403, 跳过`); return StudyResult.FORBIDDEN;
-    }
-    if (result.passed) { logger.info(`${jobName} 完成`); return StudyResult.SUCCESS; }
+    // 每 waitTime 秒视频时间发送一次心跳, 或到达 duration 时也发送 (可能需要多次才能完成)
+    if (playTime - lastLogTime >= waitTime || playTime >= duration) {
+      const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
+      if (result.status === -1) return StudyResult.SUCCESS;
+      if (result.status === 403) {
+        logger.warn(`${jobName} 403, 跳过`); return StudyResult.FORBIDDEN;
+      }
+      passed = result.passed;
+      if (passed) { logger.info(`${jobName} 完成`); return StudyResult.SUCCESS; }
+      if (!passed && result.status !== 200) return StudyResult.ERROR;
 
-    // 到达末尾: 标记 finished, 下一轮循环退出
-    if (playTime >= duration) {
-      isFinished = true;
-      await sleep(3000);
-      continue;
+      waitTime = randomInt(30, 90);
+      lastLogTime = playTime;
     }
 
-    // 未到达末尾: 随机等待后推进时间
-    const waitTime = randomInt(30, 90);
-    const step = Math.min(waitTime * actualSpeed, duration - playTime);
+    // 墙钟时间推进 playTime (速率受 speed 影响)
+    const now = Date.now() / 1000;
+    const dt = (now - lastIter) * actualSpeed;
+    lastIter = now;
+    playTime = Math.min(duration, playTime + dt);
+
     const progressStr = renderVideoProgress(jobName, Math.floor(playTime), duration);
     if (process.stdout.clearLine) process.stdout.clearLine(0);
     process.stdout.write(`\r${progressStr}`);
-    logger.info(`${jobName} 进度: ${Math.floor(playTime)}/${duration}秒`);
-    await sleep(waitTime * 1000);
-    playTime += step;
+
+    await sleep(THRESHOLD * 1000);
   }
 
-  logger.info(`${jobName} 处理完毕`);
+  logger.info(`${jobName} 完成`);
   return StudyResult.SUCCESS;
 }
 

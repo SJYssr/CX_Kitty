@@ -1,13 +1,12 @@
 /**
  * 答题任务处理器 — 独立于 Chaoxing 主类
- * 答案匹配逻辑参考 Samueli924/chaoxing 项目
  * @module core/work-handler
  */
 import logger from '../utils/logger.js';
 import cfg from '../config.js';
 import { StudyResult } from './study-result.js';
 
-// ===================== 答案匹配工具 (参考 chaoxing is_subsequence + best_option_by_similarity) =====================
+// ===================== 答案匹配工具 =====================
 
 /**
  * 判断 sub 是否是 full 的子序列（字符按顺序出现，不必连续）
@@ -203,7 +202,7 @@ export async function studyWork(cx, course, job, jobInfo) {
     const coverage = totalQuestions > 0 ? foundQuestions / totalQuestions : 0;
     logger.info(`答题覆盖率: ${(coverage * 100).toFixed(0)}% (${foundQuestions}/${totalQuestions})`);
 
-    // 提交决策 (参考 chaoxing: Tiku.get_submit_params + coverage check)
+    // 提交决策
     const submit = cx.tiku.SUBMIT;
     const coverRate = cx.tiku.COVER_RATE;
     const shouldSubmit = submit && coverage >= coverRate;

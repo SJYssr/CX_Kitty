@@ -582,7 +582,7 @@ onUnmounted(() => {
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
 .task-log-panel { max-height: 470px; display: flex; flex-direction: column; overflow: hidden; }
 .course-progress { flex-shrink: 0; }
-.log-container { flex: 1; min-height: 0; overflow: hidden; font-family: monospace; font-size: 12px; line-height: 1.6; }
+.log-container { flex: 1; min-height: 0; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }

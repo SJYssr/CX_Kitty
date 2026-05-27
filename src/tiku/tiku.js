@@ -236,7 +236,7 @@ export class Tiku {
   }
 
   /**
-   * 校验答案是否匹配题型 (参考 chaoxing 项目的 check_answer)
+   * 校验答案是否匹配题型
    * @private
    */
   _validateAnswer(result, qInfo) {
