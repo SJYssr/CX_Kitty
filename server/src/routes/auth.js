@@ -44,11 +44,17 @@ router.post('/login', async (req, res) => {
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '超星登录失败' });
 
-    // 登录成功后尝试获取并保存用户姓名
+    // 登录成功后获取并保存用户详细信息
     try {
-      const info = await chaoxing.getUserInfo();
-      if (info.name) {
-        await Account.updateName(phone, info.name);
+      const ssoInfo = await chaoxing.getSSOInfo();
+      if (ssoInfo && ssoInfo.puid) {
+        await Account.updateSSOInfo(phone, ssoInfo);
+      } else {
+        // SSO 接口失败时降级到 HTML 解析方式
+        const info = await chaoxing.getUserInfo();
+        if (info.name) {
+          await Account.updateName(phone, info.name);
+        }
       }
     } catch (e) {
       console.warn('获取用户信息失败:', e?.message || e);

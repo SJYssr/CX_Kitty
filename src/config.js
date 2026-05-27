@@ -30,5 +30,9 @@ export default {
   cachePruneCount: 2000,
   sessionTimeoutMs: 30 * 60 * 1000,
   defaultJobs: 3,
-  defaultSpeed: 1
+  defaultSpeed: 1,
+
+  // 人脸识别配置
+  faceImagePath: './faces',
+  fetchUploadedFace: true
 };

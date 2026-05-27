@@ -10,8 +10,10 @@ import { studyVideo as videoHandler } from './video-handler.js';
 import { studyWork as workHandler } from './work-handler.js';
 import { RateLimiter } from './ratelimiter.js';
 import { StudyResult } from './study-result.js';
-import { login, getUserInfo, getUid, getFid } from './auth.js';
+import { login, getUserInfo, getUid, getFid, getSSOInfo } from './auth.js';
 import { getCourseList, getCoursePoint, getJobList } from './course.js';
+import { isFaceCheckPage, parseFaceCheckParams, resolveFaceDetection,
+         fetchPreUploadedFace, downloadFaceImage } from './face-detection.js';
 import logger from '../utils/logger.js';
 import cfg from '../config.js';
 
@@ -59,6 +61,33 @@ export class Chaoxing {
           throw err;
         }
       );
+
+      // 人脸识别透明拦截器 — 对应 Python SessionWraper.request() 中的 SpecialPageType.FACE 分支
+      this.axios.interceptors.response.use(
+        async (response) => {
+          if (response.config._faceRetried) return response;
+
+          if (isFaceCheckPage(response)) {
+            const html = typeof response.data === 'string' ? response.data : '';
+            const faceParams = parseFaceCheckParams(html, response.config.url);
+
+            if (faceParams) {
+              logger.info('检测到超星人脸识别请求，正在自动处理...');
+              const ok = await resolveFaceDetection(this, faceParams);
+
+              if (ok) {
+                logger.info('人脸识别完成，重试原始请求...');
+                response.config._faceRetried = true;
+                await new Promise(r => setTimeout(r, 5000));
+                return this.axios(response.config);
+              }
+              logger.warn('人脸识别处理失败，返回原始响应');
+            }
+          }
+
+          return response;
+        }
+      );
     }
 
     this.rateLimiter = new RateLimiter(cfg.rateLimit);
@@ -96,6 +125,19 @@ export class Chaoxing {
   async getUserInfo(...args) { return getUserInfo(this, ...args); }
   async getUid() { return getUid(this); }
   getFid() { return getFid(this); }
+  async getSSOInfo() { return getSSOInfo(this); }
+
+  // ===================== Face Detection =====================
+
+  async fetchFace() { return fetchPreUploadedFace(this); }
+  async saveFace(faceUrl, savePath) {
+    if (!savePath) {
+      const uid = await this.getUid();
+      const facesDir = cfg.faceImagePath || './faces';
+      savePath = `${facesDir}/${uid}.jpg`;
+    }
+    return downloadFaceImage(this, faceUrl, savePath);
+  }
 
   // ===================== Course（委托给 course.js） =====================
 

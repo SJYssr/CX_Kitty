@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   phone VARCHAR(20) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   name VARCHAR(100) DEFAULT '',
+  puid INT DEFAULT NULL,
+  sex TINYINT DEFAULT -1,
+  school VARCHAR(255) DEFAULT '',
+  stu_id VARCHAR(50) DEFAULT '',
   deepseek_api_key VARCHAR(255) DEFAULT '',
   deepseek_model VARCHAR(50) DEFAULT 'deepseek-v4-flash',
   enable_answering TINYINT(1) DEFAULT 1,
@@ -42,3 +46,9 @@ CREATE TABLE IF NOT EXISTS task_logs (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_task_id (task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 数据库迁移（已有数据库执行以下 SQL 添加新字段）:
+-- ALTER TABLE accounts ADD COLUMN puid INT DEFAULT NULL AFTER name;
+-- ALTER TABLE accounts ADD COLUMN sex TINYINT DEFAULT -1 AFTER puid;
+-- ALTER TABLE accounts ADD COLUMN school VARCHAR(255) DEFAULT '' AFTER sex;
+-- ALTER TABLE accounts ADD COLUMN stu_id VARCHAR(50) DEFAULT '' AFTER school;

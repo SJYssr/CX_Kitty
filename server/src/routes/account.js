@@ -53,7 +53,7 @@ router.get('/account/config', async (req, res) => {
   try {
     const phone = req.user.phone;
 
-    const [rows] = await Account.findByPhone(phone, 'id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, notify_email');
+    const [rows] = await Account.findByPhone(phone);
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
 
     const key = rows[0].deepseek_api_key || '';
@@ -65,6 +65,10 @@ router.get('/account/config', async (req, res) => {
         id: rows[0].id,
         phone: rows[0].phone,
         name: rows[0].name || '',
+        puid: rows[0].puid || 0,
+        sex: rows[0].sex ?? -1,
+        school: rows[0].school || '',
+        stu_id: rows[0].stu_id || '',
         deepseek_model: rows[0].deepseek_model || 'deepseek-v4-flash',
         enable_answering: !!rows[0].enable_answering,
         auto_submit: !!rows[0].auto_submit,
@@ -91,10 +95,25 @@ router.post('/account/info', async (req, res) => {
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
 
-    const info = await chaoxing.getUserInfo();
-
-    if (info.name) {
-      await Account.updateName(phone, info.name).catch(() => {});
+    let info;
+    const ssoInfo = await chaoxing.getSSOInfo();
+    if (ssoInfo && ssoInfo.puid) {
+      await Account.updateSSOInfo(phone, ssoInfo).catch(() => {});
+      info = {
+        phone: ssoInfo.phone || phone,
+        uid: '',
+        fid: '',
+        name: ssoInfo.name,
+        puid: ssoInfo.puid,
+        sex: ssoInfo.sex,
+        school: ssoInfo.school,
+        stuId: ssoInfo.stuId,
+      };
+    } else {
+      info = await chaoxing.getUserInfo();
+      if (info.name) {
+        await Account.updateName(phone, info.name).catch(() => {});
+      }
     }
 
     res.json({ success: true, info });

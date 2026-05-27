@@ -42,6 +42,8 @@ COPY --from=builder /app/client/dist /client/dist
 
 # 创建数据目录（SQLite 缓存用）
 RUN mkdir -p /app/data
+# 创建人脸图片目录
+RUN mkdir -p /app/faces
 
 EXPOSE 3001
 

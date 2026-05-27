@@ -34,6 +34,7 @@ services:
       PORT: 3001
     volumes:
       - cx_data:/app/data
+      - ./faces:/app/faces
     depends_on:
       db:
         condition: service_healthy

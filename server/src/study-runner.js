@@ -151,6 +151,14 @@ export async function runStudy(params) {
       return;
     }
 
+    // 尝试拉取预上传的人脸图片（对应 Python main.py:356-358）
+    if (cfg.fetchUploadedFace !== false) {
+      try {
+        const faceUrl = await chaoxing.fetchFace();
+        if (faceUrl) await chaoxing.saveFace(faceUrl);
+      } catch {} // 拉取失败不影响主流程
+    }
+
     if (_terminated) return;
 
     const allCourses = await chaoxing.getCourseList();

@@ -10,7 +10,7 @@ export class AccountDAO {
   }
 
   /** 根据手机号查找账号 */
-  findByPhone(phone, columns = 'id, phone, name, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, notify_email') {
+  findByPhone(phone, columns = 'id, phone, name, puid, sex, school, stu_id, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, notify_email') {
     return this.pool.query(`SELECT ${columns} FROM accounts WHERE phone = ?`, [phone]);
   }
 
@@ -40,6 +40,14 @@ export class AccountDAO {
   /** 更新账号姓名 */
   updateName(phone, name) {
     return this.pool.query('UPDATE accounts SET name=? WHERE phone=?', [name, phone]);
+  }
+
+  /** 更新 SSO 返回的完整用户信息（puid/sex/school/stu_id/name） */
+  updateSSOInfo(phone, { puid, name, sex, school, stuId }) {
+    return this.pool.query(
+      'UPDATE accounts SET puid=?, name=?, sex=?, school=?, stu_id=? WHERE phone=?',
+      [puid || null, name || '', sex ?? -1, school || '', stuId || '', phone]
+    );
   }
 
   /** 动态更新账号字段 */

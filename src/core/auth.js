@@ -148,3 +148,39 @@ export async function getUserInfo(instance) {
 
   return { phone, uid, fid, name };
 }
+
+// 移动端 UA — SSO 接口需要 APP UA
+const MOBILE_UA_SSO = 'Dalvik/2.1.0 (Linux; U; Android 11; MI11 Build/SKQ1.210216.001) (device:MI11) Language/zh_CN com.chaoxing.mobile/ChaoXingStudy_3_5.1.4_android_phone_614_74';
+
+const API_SSO_LOGIN = 'https://sso.chaoxing.com/apis/login/userLogin4Uname.do';
+
+/**
+ * 从 SSO 接口获取完整用户信息
+ * 对应 Python: ChaoXINGAPI.accinfo()
+ * @returns {Promise<Object|null>} { puid, name, sex, phone, school, stuId }
+ */
+export async function getSSOInfo(instance) {
+  try {
+    const resp = await instance.axios.get(API_SSO_LOGIN, {
+      headers: {
+        'User-Agent': MOBILE_UA_SSO,
+        'X-Requested-With': 'com.chaoxing.mobile',
+      },
+      timeout: 10000,
+    });
+    const json = resp.data;
+    if (json.result === 0) return null;
+
+    const msg = json.msg || {};
+    return {
+      puid: msg.puid || 0,
+      name: msg.name || '',
+      sex: msg.sex !== undefined ? msg.sex : -1,
+      phone: msg.phone || '',
+      school: msg.schoolname || '',
+      stuId: msg.uname || '',
+    };
+  } catch {
+    return null;
+  }
+}
