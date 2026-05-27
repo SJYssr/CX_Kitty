@@ -36,8 +36,8 @@
           <el-switch v-model="form.autoSubmit" :disabled="!form.enableAnswering" active-text="自动提交" inactive-text="仅保存" />
         </el-form-item>
 
-        <el-form-item label="提交覆盖率门槛" v-if="form.autoSubmit">
-          <el-slider v-model="form.coverRate" :min="0.1" :max="1" :step="0.05" :format-tooltip="v => Math.round(v * 100) + '%'" show-input size="small" style="width:100%" />
+        <el-form-item label="提交覆盖率门槛">
+          <el-slider v-model="form.coverRate" :min="0.1" :max="1" :step="0.05" :format-tooltip="v => Math.round(v * 100) + '%'" :disabled="!form.autoSubmit" show-input size="small" style="width:100%" />
           <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px">AI 答题覆盖率达到此比例才真正提交，否则仅保存</div>
         </el-form-item>
 
@@ -180,7 +180,7 @@ onMounted(async () => {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 20px; padding: 32px;
-  width: 100%;
+  width: 100%; max-height: 85vh; overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   border: 1px solid rgba(255,255,255,0.2);
   text-align: center;
