@@ -202,11 +202,14 @@ const taskLogs = computed(() => {
 
 let sseReconnectTimer = null
 
-function connectSSE(taskId) {
-  loadHistoryLogs(taskId)
+async function connectSSE(taskId) {
+  // 先加载 DB 历史日志，再建 SSE 连接，避免竞态
+  await loadHistoryLogs(taskId)
+  // 清理旧连接
   if (sseSource) { sseSource.close(); sseSource = null }
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
-  // 不清空 liveLogs，重连时保留已有日志
+  // 重连时清空内存日志，由 historyLogs（DB）作为唯一数据源
+  liveLogs.value = []
 
   const saved = JSON.parse(localStorage.getItem('cx_account') || '{}')
   const source = new EventSource('/api/study/logs/' + taskId + '?token=' + (saved.token || ''))
@@ -214,13 +217,13 @@ function connectSSE(taskId) {
     try {
       const entry = JSON.parse(e.data)
       liveLogs.value.push(entry)
-      // 限制 liveLogs 上限，防止内存泄漏
       if (liveLogs.value.length > 300) liveLogs.value = liveLogs.value.slice(-200)
     } catch {}
   }
   source.onerror = () => {
+    // 只有连接异常断开时才重连，主动 close() 导致的 CLOSED 状态不重连
+    if (source.readyState === EventSource.CLOSED) return
     source.close()
-    // 强制重连，不管任务状态（状态由外层 sync 保证）
     sseReconnectTimer = setTimeout(() => connectSSE(taskId), 5000)
   }
   sseSource = source
@@ -521,29 +524,24 @@ async function terminateTask(taskId) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadCourses()
-  loadTasks()
   fetchSystemLoad()
   loadTimer = setInterval(fetchSystemLoad, 1000)
+
+  // 统一通过 loadTasks 检测运行中的任务并恢复 SSE+轮询
   const lastNotice = localStorage.getItem('cx_last_task_notice')
-  axios.get('/api/study/tasks').then(r => {
-    if (!r.data.success || !r.data.tasks?.length) return
-    const latest = r.data.tasks[0]
-    // 仅在任务进行中时显示进度卡片
-    if (latest.status === 'running') {
-      currentTask.value = latest
-      startPolling(latest.id)
+  await loadTasks()
+
+  // 任务完成通知（基于 loadTasks 已拉取的最新数据）
+  const latestTask = tasks.value[0]
+  if (latestTask && ['completed','failed'].includes(latestTask.status)) {
+    if (lastNotice !== String(latestTask.id)) {
+      localStorage.setItem('cx_last_task_notice', String(latestTask.id))
+      if (latestTask.status === 'completed') ElMessage.success('🎉 上次的刷课任务已完成！')
+      else ElMessage.warning('⚠️ 上次的刷课任务执行失败')
     }
-    // Notification for completed tasks (only once per task)
-    if (['completed','failed'].includes(latest.status)) {
-      if (lastNotice !== String(latest.id)) {
-        localStorage.setItem('cx_last_task_notice', String(latest.id))
-        if (latest.status === 'completed') ElMessage.success('🎉 上次的刷课任务已完成！')
-        else ElMessage.warning('⚠️ 上次的刷课任务执行失败')
-      }
-    }
-  }).catch(() => {})
+  }
 })
 
 watch(() => props.account, (acct) => {
