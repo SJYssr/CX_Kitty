@@ -1,17 +1,4 @@
-node_modules/
-.cache/
-*.png
-.DS_Store
-.vscode/
-.idea/
-/config.js
-
-# Build output
-client/dist/
-
-# Environment
-.env
-server/.env
-
-data/
-cache.json
+faces/*.jpg
+faces/*.png  
+faces/*.jpeg
+!faces/.gitkeep
