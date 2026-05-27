@@ -17,8 +17,8 @@ router.post('/study/start', async (req, res) => {
 
     if (!password) return res.json({ success: false, message: '请填写密码' });
 
-    // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key）
-    const [accounts] = await Account.findByPhone(phone, 'id, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate');
+    // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key、并发数、倍速）
+    const [accounts] = await Account.findByPhone(phone, 'id, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, default_jobs, default_speed');
     if (!accounts.length) {
       return res.json({ success: false, message: '该账号未注册，请先注册' });
     }
@@ -28,6 +28,8 @@ router.post('/study/start', async (req, res) => {
     const enableAnswering = accounts[0].enable_answering !== 0;
     const autoSubmit = !!accounts[0].auto_submit;
     const coverRate = accounts[0].cover_rate ?? 0.8;
+    const jobs = accounts[0].default_jobs ?? 1;
+    const speed = accounts[0].default_speed ?? 1;
 
     // 如果开启了答题但没有 API Key，返回错误
     if (enableAnswering && !deepseekApiKey) {
@@ -38,7 +40,7 @@ router.post('/study/start', async (req, res) => {
     await StudyTask.terminateRunningByAccount(accountId);
 
     // 创建新任务记录
-    const [result] = await StudyTask.create(accountId, courseIds);
+    const [result] = await StudyTask.create(accountId, courseIds, speed, jobs);
 
     // 每个用户只保留最新 5 条记录
     const [rows] = await StudyTask.getRecentIds(accountId);
@@ -50,7 +52,7 @@ router.post('/study/start', async (req, res) => {
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）
-    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, deepseekModel, autoSubmit, coverRate, enableAnswering, taskId })
+    runStudy({ phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, coverRate, enableAnswering, taskId })
       .catch(err => {
         console.error('[study/start] runStudy 失败:', err?.message || err);
         StudyTask.markFailed(taskId, err.message || String(err)).catch(e => {

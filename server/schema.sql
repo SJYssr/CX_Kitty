@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS study_tasks (
   account_id INT NOT NULL,
   course_ids JSON,
   speed DECIMAL(3,1) DEFAULT 1.0,
-  jobs INT DEFAULT 3,
+  jobs INT DEFAULT 1,
   status VARCHAR(20) DEFAULT 'pending',
   progress JSON,
   error TEXT,

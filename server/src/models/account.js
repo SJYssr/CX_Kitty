@@ -58,8 +58,8 @@ export class AccountDAO {
   /** 创建账号 */
   create({ phone, password, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate }) {
     return this.pool.query(
-      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, default_speed, default_jobs)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [phone, password, notifyEmail || null, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
        enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,
        autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0,
@@ -70,7 +70,7 @@ export class AccountDAO {
   /** 直接插入（注册用，仅基础字段） */
   insertBasic(phone, hashedPassword, email) {
     return this.pool.query(
-      'INSERT INTO accounts (phone, password, notify_email, status) VALUES (?, ?, ?, ?)',
+      'INSERT INTO accounts (phone, password, notify_email, default_speed, default_jobs, status) VALUES (?, ?, ?, 1, 1, ?)',
       [phone, hashedPassword, email, 'active']
     );
   }

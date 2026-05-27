@@ -43,11 +43,11 @@ export class StudyTaskDAO {
   }
 
   /** 创建任务 */
-  create(accountId, courseIds) {
+  create(accountId, courseIds, speed = 1, jobs = 1) {
     return this.pool.query(
       `INSERT INTO study_tasks (account_id, course_ids, speed, jobs, status, started_at)
-       VALUES (?, ?, 1, 1, 'running', NOW())`,
-      [accountId, courseIds ? JSON.stringify(courseIds) : null]
+       VALUES (?, ?, ?, ?, 'running', NOW())`,
+      [accountId, courseIds ? JSON.stringify(courseIds) : null, speed, jobs]
     );
   }
 

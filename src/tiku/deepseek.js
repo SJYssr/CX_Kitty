@@ -80,14 +80,14 @@ export class TikuDeepSeek extends Tiku {
         if (options?.length) {
           prompt += '选项：\n' + options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n');
         }
-        prompt += '\n\n请直接输出正确选项的完整内容（原文照抄该选项的文字），不要输出字母，不要加任何解释。';
+        prompt += '\n\n请只输出正确选项的字母（A、B、C 或 D），不要输出选项内容，不要加任何解释或标点。示例：A';
         break;
       case 'multiple':
         prompt += `题型：多选题\n题目：${title}\n`;
         if (options?.length) {
           prompt += '选项：\n' + options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n');
         }
-        prompt += '\n\n请直接输出所有正确选项的完整内容，每个选项的内容之间用 ### 分隔，不要输出字母，不要加任何解释。';
+        prompt += '\n\n请只输出所有正确选项的字母（如 ABD），多个字母连在一起不要分隔，不要输出选项内容，不要加任何解释。示例：ABD';
         break;
       case 'judgement':
         prompt += `题型：判断题\n题目：${title}\n\n请直接输出"正确"或"错误"，不要输出任何其他内容。`;
@@ -149,13 +149,25 @@ export class TikuDeepSeek extends Tiku {
         return null;
       }
 
-      // 清理回答中的 markdown 格式（保留字母前缀和空白，由 work-handler 的 matchAnswerToOption 统一处理）
+      // 清理 markdown 格式
       let answer = rawAnswer
-        .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')  // 去加粗/斜体
-        .replace(/`{1,3}[^`]*`{1,3}/g, '')           // 去代码块/行内代码
+        .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+        .replace(/`{1,3}[^`]*`{1,3}/g, '')
         .trim();
 
       if (!answer) return null;
+
+      // 按题型提取答案：单选/多选优先从输出中提取字母，提高匹配成功率
+      const type = qInfo.type;
+      if (type === 'single') {
+        const letterMatch = answer.match(/[A-Da-d]/);
+        answer = letterMatch ? letterMatch[0].toUpperCase() : answer;
+      } else if (type === 'multiple') {
+        const letters = [...answer.toUpperCase()].filter(ch => ch >= 'A' && ch <= 'D');
+        if (letters.length > 0) {
+          answer = [...new Set(letters)].sort().join('');
+        }
+      }
 
       logger.info(`DeepSeek 答题: ${qInfo.title.slice(0, 30)}... → ${answer}`);
       return { answer };

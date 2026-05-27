@@ -191,67 +191,82 @@ export async function studyWork(cx, course, job, jobInfo) {
       return StudyResult.SUCCESS;
     }
 
-    let foundQuestions = 0;
+    let matchedCount = 0;
     const totalQuestions = questions.length;
     formData.answerwqbid = questions.map(q => q.id).join(',') + ',';
 
-    const answers = [];
+    // 第一遍：查询 DeepSeek 获取所有答案
+    const rawAnswers = [];
     for (const q of questions) {
       formData[q.answerTypeField] = q.typeCodeRaw;
       try {
         const result = await cx.tiku.query({ title: q.title, options: q.options, type: q.type });
-        if (result) {
-          foundQuestions++;
-          answers.push({ q, answer: result.answer, found: true });
-        } else {
-          answers.push({ q, answer: null, found: false });
-        }
+        rawAnswers.push({ q, answer: result ? result.answer : null, found: !!result });
       } catch (_) {
         logger.warn('答题查询失败: ' + (_.message || _));
-        answers.push({ q, answer: null, found: false });
+        rawAnswers.push({ q, answer: null, found: false });
       }
     }
 
-    const coverage = totalQuestions > 0 ? foundQuestions / totalQuestions : 0;
-    logger.info(`答题覆盖率: ${(coverage * 100).toFixed(0)}% (${foundQuestions}/${totalQuestions})`);
-
-    // 提交决策
-    const submit = cx.tiku.SUBMIT;
-    const coverRate = cx.tiku.COVER_RATE;
-    const shouldSubmit = submit && coverage >= coverRate;
-    const pyFlag = shouldSubmit ? '' : '1';
-
-    for (const { q, answer: ansText, found } of answers) {
-      if (pyFlag === '1' && !found) {
+    // 第二遍：匹配答案到选项，同时统计真正匹配成功的题数
+    for (const { q, answer: ansText, found } of rawAnswers) {
+      if (!ansText || !found) {
         formData[q.answerField] = '';
         continue;
       }
 
-      if (ansText && found) {
-        if (q.type === 'judgement') {
-          const jr = cx.tiku.judgementSelect?.(ansText);
-          formData[q.answerField] = jr !== null ? (jr ? 'true' : 'false') : _randomAnswer(q);
-        } else if (q.type === 'completion' || q.type === 'shortanswer') {
-          formData[q.answerField] = ansText;
-        } else if (q.type === 'multiple') {
-          const letters = matchAnswerToMultipleOptions(ansText, q.options);
-          formData[q.answerField] = letters || _randomAnswer(q);
-        } else {
-          // single — 匹配答案文本到选项，返回字母
-          const letter = matchAnswerToOption(ansText, q.options);
-          if (letter) {
-            formData[q.answerField] = letter;
-          } else {
-            const letterMatch = (ansText || '').match(/^[A-Da-d]$/);
-            formData[q.answerField] = letterMatch ? letterMatch[0].toUpperCase() : _randomAnswer(q);
-          }
+      let matched = false;
+      if (q.type === 'judgement') {
+        const jr = cx.tiku.judgementSelect?.(ansText);
+        if (jr !== null) {
+          formData[q.answerField] = jr ? 'true' : 'false';
+          matched = true;
+        }
+      } else if (q.type === 'completion' || q.type === 'shortanswer') {
+        formData[q.answerField] = ansText;
+        matched = ansText.length > 0;
+      } else if (q.type === 'multiple') {
+        const letters = matchAnswerToMultipleOptions(ansText, q.options);
+        if (letters) {
+          formData[q.answerField] = letters;
+          matched = true;
         }
       } else {
-        formData[q.answerField] = _randomAnswer(q);
+        // single
+        const letter = matchAnswerToOption(ansText, q.options);
+        if (letter) {
+          formData[q.answerField] = letter;
+          matched = true;
+        } else {
+          // 兜底：如果答案本身就是裸字母
+          const letterMatch = (ansText || '').match(/^[A-Da-d]$/);
+          if (letterMatch) {
+            formData[q.answerField] = letterMatch[0].toUpperCase();
+            matched = true;
+          }
+        }
       }
+
+      if (matched) matchedCount++;
     }
 
-    formData.pyFlag = pyFlag;
+    const coverage = totalQuestions > 0 ? matchedCount / totalQuestions : 0;
+    logger.info(`答题覆盖率: ${(coverage * 100).toFixed(0)}% (${matchedCount}/${totalQuestions})`);
+
+    // 提交决策：覆盖率达标才提交，否则仅保存
+    const submit = cx.tiku.SUBMIT;
+    const coverRate = cx.tiku.COVER_RATE;
+    const shouldSubmit = submit && coverage >= coverRate;
+    formData.pyFlag = shouldSubmit ? '' : '1';
+
+    // 对于未匹配的题，填充随机答案（仅提交模式需要）
+    if (shouldSubmit) {
+      for (const { q } of rawAnswers) {
+        if (!formData[q.answerField] || formData[q.answerField] === '') {
+          formData[q.answerField] = _randomAnswer(q);
+        }
+      }
+    }
     // token/key 使用 HTML 表单中提取的值，不覆盖（ktoken/mtEnc 是 URL 参数，不能用作提交 token）
 
     const params = new URLSearchParams(formData);
@@ -265,7 +280,7 @@ export async function studyWork(cx, course, job, jobInfo) {
     );
 
     if (submitResp.status === 200) {
-      const pyLabel = pyFlag === '1' ? '保存' : '提交';
+      const pyLabel = formData.pyFlag === '1' ? '保存' : '提交';
       let resJson;
       try {
         resJson = typeof submitResp.data === 'string' ? JSON.parse(submitResp.data) : submitResp.data;
