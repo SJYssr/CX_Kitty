@@ -274,12 +274,15 @@ const startBtnText = computed(() => {
   return '开始刷课'
 })
 
+const wasEmpty = ref(true)
+
 function onSelectionChange(selection) {
+  wasEmpty.value = selectedCourses.value.length === 0
   selectedCourses.value = selection.map(c => c.courseId)
 }
 
 function onSelectAll() {
-  if (selectedCourses.value.length > 0) {
+  if (!wasEmpty.value) {
     nextTick(() => courseTableRef.value.clearSelection())
   }
 }
