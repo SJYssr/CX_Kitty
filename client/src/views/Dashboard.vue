@@ -280,7 +280,7 @@ function onSelectionChange(selection) {
 
 function onSelectAll() {
   if (selectedCourses.value.length > 0) {
-    courseTableRef.value.clearSelection()
+    nextTick(() => courseTableRef.value.clearSelection())
   }
 }
 
