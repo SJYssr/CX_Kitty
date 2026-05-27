@@ -30,7 +30,7 @@ import bus from './log-bus.js';
 const GLOBAL_THROTTLE = new RateLimiter(cfg.globalThrottle);
 
 export async function runStudy(params) {
-  const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId } = params;
+  const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, coverRate, taskId } = params;
 
   let _terminated = false;
   let _progressLock = Promise.resolve();
@@ -120,7 +120,7 @@ export async function runStudy(params) {
   try {
     const tiku = (params.enableAnswering !== false) ? (() => {
       const t = new TikuDeepSeek(deepseekApiKey || '', deepseekModel);
-      t.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: 0.8 });
+      t.initTiku({ SUBMIT: !!autoSubmit, COVER_RATE: coverRate ?? 0.8 });
       return t;
     })() : null;
 

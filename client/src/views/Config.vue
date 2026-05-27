@@ -36,6 +36,11 @@
           <el-switch v-model="form.autoSubmit" :disabled="!form.enableAnswering" active-text="自动提交" inactive-text="仅保存" />
         </el-form-item>
 
+        <el-form-item label="提交覆盖率门槛" v-if="form.autoSubmit">
+          <el-slider v-model="form.coverRate" :min="0.1" :max="1" :step="0.05" :format-tooltip="v => Math.round(v * 100) + '%'" show-input size="small" style="width:100%" />
+          <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px">AI 答题覆盖率达到此比例才真正提交，否则仅保存</div>
+        </el-form-item>
+
         <el-form-item label="通知邮箱">
           <el-input v-model="form.notifyEmail" placeholder="用于接收刷课通知的邮箱" size="small" />
         </el-form-item>
@@ -78,6 +83,7 @@ const form = ref({
   deepseekModel: 'deepseek-v4-flash',
   enableAnswering: true,
   autoSubmit: false,
+  coverRate: 0.8,
   notifyEmail: '',
 })
 
@@ -107,6 +113,7 @@ async function save() {
       deepseekModel: form.value.deepseekModel,
       enableAnswering: form.value.enableAnswering,
       autoSubmit: form.value.autoSubmit,
+      coverRate: form.value.coverRate,
       notifyEmail: form.value.notifyEmail
     }
     // 仅在用户编辑时发送 API Key（修改或首次设置）
@@ -137,6 +144,7 @@ onMounted(async () => {
         form.value.deepseekModel = data.config.deepseek_model || 'deepseek-v4-flash'
         form.value.enableAnswering = data.config.enable_answering !== false
         form.value.autoSubmit = !!data.config.auto_submit
+        form.value.coverRate = data.config.cover_rate ?? 0.8
         form.value.notifyEmail = data.config.notify_email || ''
         // 不填充 API Key 到表单，只在有 key 时自动查余额
         if (hasKey.value) setTimeout(queryBalance, 500)

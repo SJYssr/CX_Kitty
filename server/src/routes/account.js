@@ -9,7 +9,7 @@ const router = Router();
 // 保存/更新账号（含 AI 配置）
 router.post('/account/save', async (req, res) => {
   try {
-    const { password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, notifyEmail } = req.body;
+    const { password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate, notifyEmail } = req.body;
     const phone = req.user.phone;
     if (!password) return res.json({ success: false, message: '密码不能为空' });
 
@@ -34,13 +34,14 @@ router.post('/account/save', async (req, res) => {
       if (deepseekModel !== undefined) { updates.push('deepseek_model = ?'); params.push(deepseekModel); }
       if (enableAnswering !== undefined) { updates.push('enable_answering = ?'); params.push(enableAnswering ? 1 : 0); }
       if (autoSubmit !== undefined) { updates.push('auto_submit = ?'); params.push(autoSubmit ? 1 : 0); }
+      if (coverRate !== undefined) { updates.push('cover_rate = ?'); params.push(coverRate); }
       if (notifyEmail !== undefined) { updates.push('notify_email = ?'); params.push(notifyEmail || null); }
 
       await Account.updateFields(phone, updates, params);
       return res.json({ success: true, account: { id: existing[0].id, phone } });
     }
 
-    const [r] = await Account.create({ phone, password: hashed, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit });
+    const [r] = await Account.create({ phone, password: hashed, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate });
     res.json({ success: true, account: { id: r.insertId, phone } });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -52,7 +53,7 @@ router.get('/account/config', async (req, res) => {
   try {
     const phone = req.user.phone;
 
-    const [rows] = await Account.findByPhone(phone, 'id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email');
+    const [rows] = await Account.findByPhone(phone, 'id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, notify_email');
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
 
     const key = rows[0].deepseek_api_key || '';
@@ -67,6 +68,7 @@ router.get('/account/config', async (req, res) => {
         deepseek_model: rows[0].deepseek_model || 'deepseek-v4-flash',
         enable_answering: !!rows[0].enable_answering,
         auto_submit: !!rows[0].auto_submit,
+        cover_rate: rows[0].cover_rate ?? 0.8,
         notify_email: rows[0].notify_email || '',
         has_deepseek_key: !!key,
         deepseek_key_masked: masked

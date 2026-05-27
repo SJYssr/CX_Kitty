@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   deepseek_model VARCHAR(50) DEFAULT 'deepseek-v4-flash',
   enable_answering TINYINT(1) DEFAULT 1,
   auto_submit TINYINT(1) DEFAULT 0,
+  cover_rate FLOAT DEFAULT 0.8,
   notify_email VARCHAR(128) DEFAULT NULL UNIQUE,
   status VARCHAR(20) DEFAULT 'active',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

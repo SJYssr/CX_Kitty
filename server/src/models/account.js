@@ -10,7 +10,7 @@ export class AccountDAO {
   }
 
   /** 根据手机号查找账号 */
-  findByPhone(phone, columns = 'id, phone, name, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email') {
+  findByPhone(phone, columns = 'id, phone, name, password, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate, notify_email') {
     return this.pool.query(`SELECT ${columns} FROM accounts WHERE phone = ?`, [phone]);
   }
 
@@ -48,13 +48,14 @@ export class AccountDAO {
   }
 
   /** 创建账号 */
-  create({ phone, password, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit }) {
+  create({ phone, password, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate }) {
     return this.pool.query(
-      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit, cover_rate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [phone, password, notifyEmail || null, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
        enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,
-       autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0]
+       autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0,
+       coverRate ?? 0.8]
     );
   }
 
