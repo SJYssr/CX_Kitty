@@ -128,7 +128,14 @@ export async function fetchPreUploadedFace(cx) {
  */
 export async function downloadFaceImage(cx, url, savePath) {
   try {
-    const resp = await cx.axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
+    const resp = await cx.axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      headers: {
+        'Referer': 'https://i.chaoxing.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
     ensureFacesDir();
     fs.writeFileSync(savePath, Buffer.from(resp.data));
     logger.info(`人脸图片已保存: ${savePath}`);
