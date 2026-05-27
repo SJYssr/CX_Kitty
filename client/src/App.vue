@@ -114,25 +114,27 @@ onMounted(() => {
         return
       }
       sessionToken.value = parsed.token
-      // 先验证 token 有效性（检测是否被顶号）
+      account.value = parsed
+      if (route.name !== 'Dashboard') router.push('/dashboard')
+      // 异步验证 token 有效性（检测是否被顶号），失败则踢回登录
       axios.get('/api/auth/verify').then(({ data }) => {
         if (!data.success) {
           // token 已失效 → 被顶号
           localStorage.removeItem('cx_account')
           sessionToken.value = ''
+          account.value = null
           router.push('/login')
           return
         }
-        account.value = parsed
         // 刷新服务端配置（含姓名等）
         axios.get('/api/account/config').then(({ data: cfg }) => {
           if (cfg.success && cfg.config) {
             account.value = { ...account.value, ...cfg.config }
           }
         }).catch(() => {})
-        router.push('/dashboard')
       }).catch(() => {
         localStorage.removeItem('cx_account')
+        account.value = null
         router.push('/login')
       })
     } catch (e) {
