@@ -53,6 +53,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import axios from 'axios'
 
 const props = defineProps({ account: Object, dialogMode: Boolean })
@@ -107,10 +108,13 @@ async function save() {
       body.deepseekApiKey = form.value.deepseekApiKey
     }
     await axios.post('/api/account/save', body)
+    ElMessage.success('配置已保存')
     emit('enter', form.value)
     emit('close')
   } catch (e) {
-    error.value = e.response?.data?.message || '保存失败'
+    const msg = e.response?.data?.message || '保存失败'
+    error.value = msg
+    ElMessage.error(msg)
   } finally { saving.value = false }
 }
 
