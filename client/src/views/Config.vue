@@ -3,7 +3,7 @@
     <div class="card">
       <p class="phone" v-if="!dialogMode">{{ account.phone }}</p>
 
-      <el-form label-position="top" size="small" class="config-form">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="small" class="config-form">
         <el-form-item label="DeepSeek API Key">
           <div v-if="hasKey && !editingKey" class="key-status">
             <span class="key-masked">{{ maskedKey }}</span>
@@ -59,7 +59,13 @@ import axios from 'axios'
 const props = defineProps({ account: Object, dialogMode: Boolean })
 const emit = defineEmits(['enter', 'close'])
 
+const formRef = ref(null)
 const saving = ref(false)
+const rules = {
+  notifyEmail: [
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ]
+}
 const checking = ref(false)
 const balance = ref(null)
 const error = ref('')
@@ -90,6 +96,9 @@ async function queryBalance() {
 }
 
 async function save() {
+  if (formRef.value) {
+    try { await formRef.value.validate() } catch { return }
+  }
   saving.value = true
   error.value = ''
   try {

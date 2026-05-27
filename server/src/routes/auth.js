@@ -19,6 +19,7 @@ router.post('/login', async (req, res) => {
   try {
     const { phone, password, captchaToken, captchaCode } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
+    if (!/^1\d{10}$/.test(phone)) return res.json({ success: false, message: '手机号格式不正确' });
 
     // 1. 先校验图形验证码（防刷、防暴力破解）
     if (!verifyCaptcha(captchaToken, captchaCode)) {
@@ -90,6 +91,8 @@ router.post('/register', async (req, res) => {
     if (!phone || !password || !email || !code) {
       return res.json({ success: false, message: '请填写完整信息' });
     }
+    if (!/^1\d{10}$/.test(phone)) return res.json({ success: false, message: '手机号格式不正确' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.json({ success: false, message: '邮箱格式不正确' });
 
     // 1. 先查是否已注册
     const [existing] = await Account.findByPhone(phone, 'id');

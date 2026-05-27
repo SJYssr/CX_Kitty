@@ -12,8 +12,11 @@ router.post('/account/save', async (req, res) => {
     const { phone, password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, notifyEmail } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '手机号和密码不能为空' });
 
-    // 邮箱重复校验
+    // 邮箱格式 + 重复校验
     if (notifyEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+        return res.json({ success: false, message: '邮箱格式不正确' });
+      }
       const [emailUsers] = await Account.isEmailUsed(notifyEmail, phone);
       if (emailUsers.length > 0) {
         return res.json({ success: false, message: '该邮箱已被其他账号绑定' });

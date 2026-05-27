@@ -54,7 +54,10 @@ let codeTimer = null
 
 const form = ref({ phone: '', password: '', email: '', code: '' })
 const rules = {
-  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1\d{10}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
