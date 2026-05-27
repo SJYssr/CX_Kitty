@@ -5,7 +5,6 @@ import { sendVerifyCode } from '../../../src/notify/email.js';
 import { generateCaptcha, verifyCaptcha } from '../captcha.js';
 import { sanitizeError } from '../error.js';
 import { Account } from '../models/account.js';
-import bcrypt from 'bcryptjs';
 import { createStandalone } from '../../../src/core/factory.js';
 
 const router = Router();
@@ -34,7 +33,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 3. 校验密码
-    if (!(await bcrypt.compare(password, rows[0].password))) {
+    if (password !== rows[0].password) {
       return res.json({ success: false, message: '学习通账号或密码错误，请核实' });
     }
 
@@ -142,8 +141,7 @@ router.post('/register', async (req, res) => {
     }
 
     // 5. 全部通过，写入数据库
-    const hashed = await bcrypt.hash(password, 10);
-    await Account.insertBasic(phone, hashed, email);
+    await Account.insertBasic(phone, password, email);
 
     res.json({ success: true, message: '注册成功' });
   } catch (err) {

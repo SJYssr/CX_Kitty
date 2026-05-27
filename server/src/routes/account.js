@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { sanitizeError } from '../error.js';
 import { Account } from '../models/account.js';
 import { createStandalone } from '../../../src/core/factory.js';
@@ -24,12 +23,11 @@ router.post('/account/save', async (req, res) => {
       }
     }
 
-    const hashed = await bcrypt.hash(password, 10);
     const [existing] = await Account.findByPhone(phone, 'id');
 
     if (existing.length > 0) {
       const updates = ['password = ?'];
-      const params = [hashed];
+      const params = [password];
       if (deepseekApiKey !== undefined) { updates.push('deepseek_api_key = ?'); params.push(deepseekApiKey); }
       if (deepseekModel !== undefined) { updates.push('deepseek_model = ?'); params.push(deepseekModel); }
       if (enableAnswering !== undefined) { updates.push('enable_answering = ?'); params.push(enableAnswering ? 1 : 0); }
@@ -41,7 +39,7 @@ router.post('/account/save', async (req, res) => {
       return res.json({ success: true, account: { id: existing[0].id, phone } });
     }
 
-    const [r] = await Account.create({ phone, password: hashed, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate });
+    const [r] = await Account.create({ phone, password, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate });
     res.json({ success: true, account: { id: r.insertId, phone } });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
