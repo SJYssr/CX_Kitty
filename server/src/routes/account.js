@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import pool from '../db.js';
-import axios from 'axios';
 import { sanitizeError } from '../error.js';
-import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
+import { Account } from '../models/account.js';
+import { createStandalone } from '../../../src/core/factory.js';
 
 const router = Router();
 
@@ -15,18 +13,15 @@ router.post('/account/save', async (req, res) => {
     if (!phone || !password) return res.json({ success: false, message: '手机号和密码不能为空' });
 
     // 邮箱重复校验
-    if (notifyEmail !== undefined && notifyEmail) {
-      const [emailUsers] = await pool.query(
-        'SELECT id FROM accounts WHERE notify_email = ? AND phone != ?',
-        [notifyEmail, phone]
-      );
+    if (notifyEmail) {
+      const [emailUsers] = await Account.isEmailUsed(notifyEmail, phone);
       if (emailUsers.length > 0) {
         return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
       }
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
+    const [existing] = await Account.findByPhone(phone, 'id');
 
     if (existing.length > 0) {
       const updates = ['password = ?'];
@@ -37,34 +32,24 @@ router.post('/account/save', async (req, res) => {
       if (autoSubmit !== undefined) { updates.push('auto_submit = ?'); params.push(autoSubmit ? 1 : 0); }
       if (notifyEmail !== undefined) { updates.push('notify_email = ?'); params.push(notifyEmail || null); }
 
-      params.push(phone);
-      await pool.query(`UPDATE accounts SET ${updates.join(', ')} WHERE phone = ?`, params);
+      await Account.updateFields(phone, updates, params);
       return res.json({ success: true, account: { id: existing[0].id, phone } });
     }
 
-    const [r] = await pool.query(
-      `INSERT INTO accounts (phone, password, notify_email, deepseek_api_key, deepseek_model, enable_answering, auto_submit)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [phone, hashed, notifyEmail || null, deepseekApiKey || '', deepseekModel || 'deepseek-v4-flash',
-       enableAnswering !== undefined ? (enableAnswering ? 1 : 0) : 1,
-       autoSubmit !== undefined ? (autoSubmit ? 1 : 0) : 0]
-    );
+    const [r] = await Account.create({ phone, password: hashed, notifyEmail, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit });
     res.json({ success: true, account: { id: r.insertId, phone } });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
   }
 });
 
-// 获取账号配置（含 AI 配置）— 不再返回明文 API Key
+// 获取账号配置
 router.get('/account/config', async (req, res) => {
   try {
     const phone = req.query.phone;
     if (!phone) return res.json({ success: false, message: '缺少手机号' });
 
-    const [rows] = await pool.query(
-      'SELECT id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email FROM accounts WHERE phone = ?',
-      [phone]
-    );
+    const [rows] = await Account.findByPhone(phone, 'id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email');
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
 
     const key = rows[0].deepseek_api_key || '';
@@ -89,16 +74,13 @@ router.get('/account/config', async (req, res) => {
   }
 });
 
-// 获取/刷新用户个人信息（进程内，无需 fork）
+// 获取/刷新用户个人信息
 router.post('/account/info', async (req, res) => {
   try {
     const { phone, password } = req.body;
     if (!phone || !password) return res.json({ success: false, message: '缺少手机号或密码' });
 
-    const jar = new CookieJar();
-    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
-    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, fastMode: true, _standaloneSession: standalone });
+    const chaoxing = createStandalone({ phone, password }, { fastMode: true });
 
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '登录失败' });
@@ -106,10 +88,7 @@ router.post('/account/info', async (req, res) => {
     const info = await chaoxing.getUserInfo();
 
     if (info.name) {
-      await pool.query(
-        'UPDATE accounts SET name=? WHERE phone=?',
-        [info.name, phone]
-      ).catch(() => {});
+      await Account.updateName(phone, info.name).catch(() => {});
     }
 
     res.json({ success: true, info });

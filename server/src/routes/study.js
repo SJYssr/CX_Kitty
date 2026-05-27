@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import pool from '../db.js';
 import { runStudy } from '../study-runner.js';
 import bus from '../log-bus.js';
 import { sanitizeError } from '../error.js';
+import { Account } from '../models/account.js';
+import { StudyTask } from '../models/study-task.js';
 
 const router = Router();
 
@@ -16,9 +17,7 @@ router.post('/study/start', async (req, res) => {
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 
     // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key）
-    const [accounts] = await pool.query(
-      'SELECT id, deepseek_api_key, deepseek_model, enable_answering, auto_submit FROM accounts WHERE phone = ?', [phone]
-    );
+    const [accounts] = await Account.findByPhone(phone, 'id, deepseek_api_key, deepseek_model, enable_answering, auto_submit');
     if (!accounts.length) {
       return res.json({ success: false, message: '该账号未注册，请先注册' });
     }
@@ -34,44 +33,25 @@ router.post('/study/start', async (req, res) => {
     }
 
     // 终止该账号所有正在运行的任务
-    await pool.query(
-      'UPDATE study_tasks SET status = ?, finished_at = NOW() WHERE account_id = ? AND status = ?',
-      ['terminated', accounts[0].id, 'running']
-    );
+    await StudyTask.terminateRunningByAccount(accounts[0].id);
 
     // 创建新任务记录
-    const [result] = await pool.query(
-      `INSERT INTO study_tasks (account_id, course_ids, speed, jobs, status, started_at)
-       VALUES (?, ?, 1, 1, 'running', NOW())`,
-      [accounts[0].id, courseIds ? JSON.stringify(courseIds) : null]
-    );
+    const [result] = await StudyTask.create(accounts[0].id, courseIds);
 
     // 每个用户只保留最新 2 条记录
-    const [rows] = await pool.query(
-      'SELECT id FROM study_tasks WHERE account_id = ? ORDER BY id DESC LIMIT 2',
-      [accounts[0].id]
-    );
+    const [rows] = await StudyTask.getRecentIds(accounts[0].id);
     if (rows.length === 2) {
       const cutoffId = rows[1].id;
-      await pool.query(
-        'DELETE FROM task_logs WHERE task_id IN (SELECT id FROM study_tasks WHERE account_id = ? AND id < ?)',
-        [accounts[0].id, cutoffId]
-      );
-      await pool.query(
-        'DELETE FROM study_tasks WHERE account_id = ? AND id < ?',
-        [accounts[0].id, cutoffId]
-      );
+      await StudyTask.deleteOldLogs(accounts[0].id, cutoffId);
+      await StudyTask.deleteOldByAccount(accounts[0].id, cutoffId);
     }
     const taskId = result.insertId;
 
     // 后台运行（不阻塞 HTTP）
-    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, deepseekModel, autoSubmit, enableAnswering, taskId, pool })
+    runStudy({ phone, password, courseIds, speed: 1, jobs: 1, deepseekApiKey, deepseekModel, autoSubmit, enableAnswering, taskId })
       .catch(err => {
         console.error('[study/start] runStudy 失败:', err?.message || err);
-        pool.query(
-          'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
-          ['failed', err.message || String(err), taskId]
-        ).catch(e => {
+        StudyTask.markFailed(taskId, err.message || String(err)).catch(e => {
           console.error('[study/start] 更新任务状态失败:', e?.message || e);
         });
       });
@@ -85,13 +65,12 @@ router.post('/study/start', async (req, res) => {
 router.get('/study/status/:taskId', async (req, res) => {
   try {
     const phone = req.query.phone || '';
-    let sql = 'SELECT id, course_ids, status, speed, jobs, started_at, finished_at, progress, error FROM study_tasks WHERE id = ?';
-    const params = [req.params.taskId];
-    if (phone) {
-      sql += ' AND account_id = (SELECT id FROM accounts WHERE phone = ?)';
-      params.push(phone);
+    const [rows] = await StudyTask.findById(req.params.taskId);
+    // 如果传了 phone，校验归属
+    if (phone && rows.length > 0) {
+      const [auth] = await StudyTask.findByIdAndPhone(req.params.taskId, phone);
+      if (!auth.length) return res.json({ success: true, task: null });
     }
-    const [rows] = await pool.query(sql, params);
     res.json({ success: true, task: rows[0] || null });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -102,10 +81,7 @@ router.get('/study/status/:taskId', async (req, res) => {
 router.post('/study/terminate/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
-    await pool.query(
-      'UPDATE study_tasks SET status = ?, finished_at = NOW() WHERE id = ? AND status = ?',
-      ['terminated', taskId, 'running']
-    );
+    await StudyTask.terminateById(taskId);
     res.json({ success: true });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -115,14 +91,7 @@ router.post('/study/terminate/:taskId', async (req, res) => {
 router.get('/study/tasks', async (req, res) => {
   try {
     const phone = req.query.phone || '';
-    let sql = 'SELECT id, course_ids, speed, jobs, status, progress, started_at, finished_at, error FROM study_tasks';
-    let params = [];
-    if (phone) {
-      sql += ' WHERE account_id = (SELECT id FROM accounts WHERE phone = ?)';
-      params.push(phone);
-    }
-    sql += ' ORDER BY id DESC LIMIT 2';
-    const [rows] = await pool.query(sql, params);
+    const [rows] = phone ? await StudyTask.findByPhone(phone) : await StudyTask.findAll();
     res.json({ success: true, tasks: rows });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -139,10 +108,7 @@ router.get('/study/logs/:taskId', async (req, res) => {
     return res.status(401).json({ success: false, message: 'unauthorized' });
   }
   try {
-    const [rows] = await pool.query(
-      'SELECT id FROM study_tasks WHERE id = ? AND account_id = (SELECT id FROM accounts WHERE phone = ?)',
-      [taskId, phone]
-    );
+    const [rows] = await StudyTask.findByIdAndPhone(taskId, phone);
     if (!rows.length) {
       return res.status(403).json({ success: false, message: 'forbidden' });
     }
@@ -190,18 +156,12 @@ router.get('/study/logs/:taskId', async (req, res) => {
 // 从 task_logs 表获取历史日志
 router.get('/study/logs-db/:taskId', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT time, text FROM task_logs WHERE task_id = ? ORDER BY id ASC',
-      [req.params.taskId]
-    );
+    const [rows] = await StudyTask.getLogs(req.params.taskId);
     if (rows.length > 0) {
       return res.json({ success: true, logs: rows });
     }
     // 没有独立日志 → 从 progress 字段读取
-    const [tasks] = await pool.query(
-      'SELECT progress FROM study_tasks WHERE id = ?',
-      [req.params.taskId]
-    );
+    const [tasks] = await StudyTask.readProgress(req.params.taskId);
     if (tasks.length > 0 && tasks[0].progress && tasks[0].progress !== 'NULL') {
       try {
         const p = JSON.parse(tasks[0].progress);

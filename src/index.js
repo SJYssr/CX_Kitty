@@ -5,7 +5,7 @@
  * @module index
  */
 
-import { Chaoxing } from './core/chaoxing.js';
+import { createShared } from './core/factory.js';
 import { SessionManager } from './core/session.js';
 import { JobProcessor } from './tasks/processor.js';
 import { TikuDeepSeek } from './tiku/deepseek.js';
@@ -195,15 +195,12 @@ async function main() {
   }
 
   // 初始化 Chaoxing
-  const chaoxing = new Chaoxing(
-    { phone, password },
+  const chaoxing = createShared({ phone, password }, {
     tiku,
-    {
-      speed: cliOpts.speed,
-      jobs: cliOpts.jobs,
-      notopenAction: cliOpts.notopenAction
-    }
-  );
+    speed: cliOpts.speed,
+    jobs: cliOpts.jobs
+  });
+  chaoxing.notopenAction = cliOpts.notopenAction;
 
   if (cliOpts.taskId) chaoxing._taskId = cliOpts.taskId;
 

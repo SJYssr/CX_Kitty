@@ -1,13 +1,11 @@
 import { Router } from 'express';
-import pool from '../db.js';
 import { generateCode, verifyCode } from '../verify-code.js';
 import { sendVerifyCode } from '../../../src/notify/email.js';
 import { generateCaptcha, verifyCaptcha } from '../captcha.js';
 import { sanitizeError } from '../error.js';
+import { Account } from '../models/account.js';
 import bcrypt from 'bcryptjs';
-import axios from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
+import { createStandalone } from '../../../src/core/factory.js';
 
 const router = Router();
 
@@ -28,7 +26,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 2. 查本地账号
-    const [rows] = await pool.query('SELECT id, password FROM accounts WHERE phone = ?', [phone]);
+    const [rows] = await Account.findForLogin(phone);
     if (!rows.length) {
       return res.json({ success: false, message: '该账号未注册，请先注册' });
     }
@@ -39,10 +37,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 4. 登录超星获取会话（刷课需要）
-    const jar = new CookieJar();
-    const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-    const { Chaoxing } = await import('../../../src/core/chaoxing.js');
-    const chaoxing = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone });
+    const chaoxing = createStandalone({ phone, password });
 
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) return res.json({ success: false, message: loginResult.msg || '超星登录失败' });
@@ -51,7 +46,7 @@ router.post('/login', async (req, res) => {
     try {
       const info = await chaoxing.getUserInfo();
       if (info.name) {
-        await pool.query('UPDATE accounts SET name=? WHERE phone=?', [info.name, phone]);
+        await Account.updateName(phone, info.name);
       }
     } catch (e) {
       console.warn('获取用户信息失败:', e?.message || e);
@@ -73,7 +68,7 @@ router.post('/send-verify-code', async (req, res) => {
     }
 
     // 检查邮箱是否已被其他账号绑定
-    const [emailUsed] = await pool.query('SELECT id FROM accounts WHERE notify_email = ?', [email]);
+    const [emailUsed] = await Account.isEmailUsed(email);
     if (emailUsed.length > 0) {
       return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
     }
@@ -97,23 +92,20 @@ router.post('/register', async (req, res) => {
     }
 
     // 1. 先查是否已注册
-    const [existing] = await pool.query('SELECT id FROM accounts WHERE phone = ?', [phone]);
+    const [existing] = await Account.findByPhone(phone, 'id');
     if (existing.length > 0) {
       return res.json({ success: false, message: '该手机号已注册，请直接登录' });
     }
 
     // 2. 邮箱重复校验（快速失败，避免浪费超星登录耗时）
-    const [emailUsed] = await pool.query('SELECT id FROM accounts WHERE notify_email = ?', [email]);
+    const [emailUsed] = await Account.isEmailUsed(email);
     if (emailUsed.length > 0) {
       return res.json({ success: false, message: '该邮箱已被其他账号绑定' });
     }
 
     // 3. 校验超星账号密码
     try {
-      const jar = new CookieJar();
-      const standalone = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000 }));
-      const { Chaoxing } = await import('../../../src/core/chaoxing.js');
-      const cx = new Chaoxing({ phone, password }, null, { speed: 1, jobs: 3, _standaloneSession: standalone, fastMode: true });
+      const cx = createStandalone({ phone, password }, { fastMode: true });
       const cxLogin = await cx.login(false);
       if (!cxLogin.status) throw new Error(cxLogin.msg);
     } catch {
@@ -127,10 +119,7 @@ router.post('/register', async (req, res) => {
 
     // 5. 全部通过，写入数据库
     const hashed = await bcrypt.hash(password, 10);
-    await pool.query(
-      'INSERT INTO accounts (phone, password, notify_email, status) VALUES (?, ?, ?, ?)',
-      [phone, hashed, email, 'active']
-    );
+    await Account.insertBasic(phone, hashed, email);
 
     res.json({ success: true, message: '注册成功' });
   } catch (err) {

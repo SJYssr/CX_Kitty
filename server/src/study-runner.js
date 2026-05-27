@@ -3,15 +3,14 @@
  * @module server/study-runner
  */
 
-import { Chaoxing } from '../../src/core/chaoxing.js';
+import { createStandalone } from '../../src/core/factory.js';
 import { RateLimiter } from '../../src/core/ratelimiter.js';
 import { JobProcessor } from '../../src/tasks/processor.js';
 import { TikuDeepSeek } from '../../src/tiku/deepseek.js';
 import { sendTaskComplete } from '../../src/notify/email.js';
+import { Account } from './models/account.js';
+import { StudyTask } from './models/study-task.js';
 import bus from './log-bus.js';
-import axios from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
 
 /**
  * 在进程内运行刷课任务
@@ -30,7 +29,7 @@ import { CookieJar } from 'tough-cookie';
 const GLOBAL_THROTTLE = new RateLimiter(200);
 
 export async function runStudy(params) {
-  const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId, pool } = params;
+  const { phone, password, courseIds, speed, jobs, deepseekApiKey, deepseekModel, autoSubmit, taskId } = params;
 
   let _terminated = false;
   // 写进度锁 — 防止并发 writeProgress 互相覆盖
@@ -38,18 +37,14 @@ export async function runStudy(params) {
 
   const updateStatus = async (status, progress) => {
     try {
-      // 如果任务已被终止（新任务启动），不再覆盖其状态
       if (status !== 'failed') {
-        const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
+        const [rows] = await StudyTask.getStatus(taskId);
         if (rows.length > 0 && rows[0].status === 'terminated') {
           _terminated = true;
           return;
         }
       }
-      await pool.query(
-        'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
-        [status, progress || '{}', taskId]
-      );
+      await StudyTask.updateStatus(taskId, status, progress);
     } catch (e) { console.warn('updateStatus 失败: ' + (e.message || e)); }
   };
 
@@ -70,20 +65,19 @@ export async function runStudy(params) {
   const checkTerminated = async () => {
     if (_terminated) return true;
     try {
-      const [rows] = await pool.query('SELECT status FROM study_tasks WHERE id = ?', [taskId]);
+      const [rows] = await StudyTask.getStatus(taskId);
       if (rows.length > 0 && rows[0].status === 'terminated') {
         _terminated = true;
-        abortController.abort(); // 中止正在跑的 HTTP 请求
+        abortController.abort();
         return true;
       }
       return false;
     } catch (e) { console.warn('checkTerminated 失败: ' + (e.message || e)); return false; }
   };
 
-  /** 读取当前进度 (JS 操作避免复杂 JSON_SET) */
   const readProgress = async () => {
     try {
-      const [rows] = await pool.query('SELECT progress FROM study_tasks WHERE id = ?', [taskId]);
+      const [rows] = await StudyTask.readProgress(taskId);
       if (rows.length && rows[0].progress) {
         return typeof rows[0].progress === 'string'
           ? JSON.parse(rows[0].progress)
@@ -106,15 +100,10 @@ export async function runStudy(params) {
           if (_terminated) return;
           const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
           bus.emit('log:' + taskId, entry);
-          // 写入独立 task_logs 表
-          await pool.query(
-            'INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)',
-            [taskId, entry.t, entry.text]
-          );
-          // 同时保留在 progress.logs 中（前端旧版兼容）
+          await StudyTask.insertLog(taskId, entry.t, entry.text);
           if (!Array.isArray(p.logs)) p.logs = [];
           p.logs.push(entry);
-          await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+          await StudyTask.updateProgress(taskId, p);
           return;
         }
 
@@ -124,12 +113,12 @@ export async function runStudy(params) {
           if (cid) {
             p.courses[cid] = { title: msg.courseTitle, total: msg.total, completed: msg.completed };
           }
-          await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+          await StudyTask.updateProgress(taskId, p);
           return;
         }
 
         // 心跳：只更新时间戳
-        await pool.query('UPDATE study_tasks SET progress = ? WHERE id = ?', [JSON.stringify(p), taskId]);
+        await StudyTask.updateProgress(taskId, p);
       } catch (e) {
         console.warn('writeProgress 失败: ' + e.message);
       }
@@ -144,15 +133,15 @@ export async function runStudy(params) {
     })() : null;
 
     // 每个任务创建独立的 session，避免串号
-    const jar = new CookieJar();
     const abortController = new AbortController();
-    const standaloneSession = wrapper(axios.create({ jar, withCredentials: true, timeout: 30000, signal: abortController.signal }));
-    const chaoxing = new Chaoxing({ phone, password }, tiku, {
-      speed: 1,
-      jobs: 1,
-      _standaloneSession: standaloneSession,
-      _globalThrottle: GLOBAL_THROTTLE
+    const chaoxing = createStandalone({ phone, password }, {
+      tiku,
+      globalThrottle: GLOBAL_THROTTLE
     });
+    // 给独立 session 挂上 abort signal
+    if (chaoxing.axios?.defaults) {
+      chaoxing.axios.defaults.signal = abortController.signal;
+    }
     chaoxing._taskId = taskId;
     chaoxing._onProgress = writeProgress;
     chaoxing._abortController = abortController;
@@ -221,12 +210,9 @@ export async function runStudy(params) {
 
     // 发送完成通知邮件
     try {
-      const [userRows] = await pool.query('SELECT notify_email FROM accounts WHERE phone = ?', [phone]);
+      const [userRows] = await Account.getNotifyEmail(phone);
       if (userRows.length > 0 && userRows[0].notify_email) {
-        const [taskRows] = await pool.query(
-          'SELECT started_at, finished_at FROM study_tasks WHERE id = ?',
-          [taskId]
-        );
+        const [taskRows] = await StudyTask.getTimestamps(taskId);
         if (taskRows.length > 0) {
 
           const fmt = (d) => {

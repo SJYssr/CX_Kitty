@@ -12,6 +12,7 @@ import studyRoutes from './routes/study.js';
 import coursesRoutes from './routes/courses.js';
 import systemRoutes from './routes/system.js';
 import { sanitizeError } from './error.js';
+import { StudyTask } from './models/study-task.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -80,11 +81,9 @@ app.use((err, req, res, next) => {
 });
 
 // 启动时清理残留的 running 任务（上次部署留下的）
-pool.query(
-  "UPDATE study_tasks SET status = 'terminated', finished_at = NOW() WHERE status = 'running'"
-).then(r => {
-  if (r[0]?.affectedRows > 0) {
-    console.log(`  清理了 ${r[0].affectedRows} 个残留的 running 任务`);
+StudyTask.cleanupStaleRunning().then(([r]) => {
+  if (r?.affectedRows > 0) {
+    console.log(`  清理了 ${r.affectedRows} 个残留的 running 任务`);
   }
 }).catch(e => {
   console.warn('  清理残留任务失败:', e.message);
