@@ -75,7 +75,6 @@ export class Chaoxing {
     this._uid = null;
     this._fid = DEFAULT_FID;
     this._taskId = null;
-    this.rollbackTimes = 0;
   }
 
   /** MD5 签名 (委托给 cipher) */
@@ -156,40 +155,18 @@ export class Chaoxing {
     try {
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
       await this.axios.get(
-        `https://mooc1.chaoxing.com/mooc-ans/knowledge/cards?clazzid=${course.clazzId}&courseid=${course.courseId}&knowledgeid=${point.id}&num=0&ut=s&cpi=${course.cpi}`,
-        { headers: cfg.videoHeaders, timeout: 10000 }
+        'https://mooc1.chaoxing.com/mooc-ans/mycourse/studentstudyAjax',
+        { params: {
+            courseId: course.courseId, clazzid: course.clazzId,
+            chapterId: point.id, cpi: course.cpi,
+            verificationcode: '', mooc2: 1, microTopicId: 0, editorPreview: 0
+          },
+          headers: cfg.videoHeaders, timeout: 10000 }
       );
       return StudyResult.SUCCESS;
     } catch (_) {
       logger.warn('空章节标记失败: ' + (_.message || _));
       return StudyResult.ERROR;
     }
-  }
-
-  // ===================== 答题工具 =====================
-
-  _mapAnswerToLetter(answer, question) {
-    const options = question.options || [];
-    const type = question.type;
-    if (type === 'single') return (answer || 'A').toUpperCase().charAt(0);
-    if (type === 'multiple') return answer.toUpperCase().split('').sort().join(',');
-    return answer;
-  }
-
-  _randomAnswer(question) {
-    const type = question.type;
-    const optsLen = (question.options || []).length;
-    if (type === 'judgement') return Math.random() > 0.5 ? 'true' : 'false';
-    if (type === 'single') return String.fromCharCode(65 + Math.floor(Math.random() * Math.max(optsLen, 4)));
-    if (type === 'multiple') {
-      const count = Math.floor(Math.random() * Math.min(optsLen, 4)) + 1;
-      const letters = new Set();
-      while (letters.size < count) {
-        letters.add(String.fromCharCode(65 + Math.floor(Math.random() * Math.max(optsLen, 4))));
-      }
-      return [...letters].sort().join(',');
-    }
-    if (type === 'completion' || type === 'shortanswer') return '答案';
-    return '0';
   }
 }

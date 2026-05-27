@@ -236,21 +236,22 @@ export class Tiku {
   }
 
   /**
-   * 校验答案是否匹配题型
+   * 校验答案是否匹配题型 (参考 chaoxing 项目的 check_answer)
    * @private
    */
   _validateAnswer(result, qInfo) {
     if (!result) return false;
-    const answer = result.answer || '';
+    const answer = (result.answer || '').trim();
+    if (!answer) return false;
     const type = qInfo.type;
 
     if (type === 'judgement') {
       return this.judgementSelect(answer) !== null;
     }
     if (type === 'completion' || type === 'shortanswer') {
-      return answer.length > 0 && answer !== 'A';
+      return answer.length > 0;
     }
-    // single / multiple: 答案是字母组合
-    return /^[A-Za-z]+$/.test(answer) && answer.length <= qInfo.options.length;
+    // single / multiple: 答案是非空文本
+    return answer.length > 0;
   }
 }

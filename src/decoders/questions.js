@@ -41,11 +41,12 @@ export function parseQuestions(html) {
   const formData = {};
   const questions = [];
 
-  // 提取表单隐藏字段
-  $('form input[type="hidden"]').each((_, el) => {
+  // 提取表单字段 (参考 chaoxing _extract_form_data: 所有 input 除了 answer 字段)
+  $('form input').each((_, el) => {
     const name = $(el).attr('name');
-    const val = $(el).attr('value') || $(el).val();
-    if (name) formData[name] = val;
+    if (!name || name.includes('answer')) return;
+    const val = $(el).attr('value') || $(el).val() || '';
+    formData[name] = val;
   });
 
   // 提取每个题目

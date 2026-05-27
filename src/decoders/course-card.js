@@ -67,7 +67,7 @@ export function parseCourseCard(html) {
         jobid: att.jobid || prop.jobid || '',
         otherinfo: otherInfo,
         objectid: att.objectId || prop.objectid || att.objectid || '',
-        name: prop.title || att.title || '视频',
+        name: prop.name || prop.title || att.title || att.name || '视频',
         playTime: att.playTime || prop.playtime || 0,
         rt,
         mid: att.mid || prop.mid || '',

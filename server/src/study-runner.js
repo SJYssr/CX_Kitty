@@ -138,6 +138,12 @@ export async function runStudy(params) {
     chaoxing._abortController = abortController;
     chaoxing.__terminated = false;
 
+    // 输出自动答题/提交配置日志
+    const answeringEnabled = !!tiku;
+    const autoSubmitEnabled = !!(tiku && tiku.SUBMIT);
+    await writeProgress({ type: 'log', text: '自动答题：' + (answeringEnabled ? '已开启' : '未开启（缺少 DeepSeek API Key 或已关闭）') });
+    await writeProgress({ type: 'log', text: '自动提交：' + (autoSubmitEnabled ? '已开启' : '未开启（仅保存答案，不提交）') });
+
     // 强制密码登录，避免 SessionManager 单例串号
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) {
@@ -200,6 +206,7 @@ export async function runStudy(params) {
       : [];
 
     await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
+    if (_terminated) return;
 
     // 发送完成通知邮件
     try {
@@ -227,6 +234,8 @@ export async function runStudy(params) {
       console.warn('发送任务完成邮件失败: ' + (e.message || e));
     }
   } catch (err) {
-    await updateStatus('failed', JSON.stringify({ error: err.message }));
+    if (!_terminated) {
+      await updateStatus('failed', JSON.stringify({ error: err.message }));
+    }
   }
 }

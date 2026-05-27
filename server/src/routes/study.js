@@ -10,9 +10,10 @@ const router = Router();
 // 启动刷课任务
 router.post('/study/start', async (req, res) => {
   try {
-    const {
+    let {
       phone, password, courseIds
     } = req.body;
+    courseIds = [...new Set(courseIds)];
 
     if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
 

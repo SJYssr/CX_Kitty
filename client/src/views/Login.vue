@@ -73,6 +73,7 @@ async function loadCaptcha() {
 }
 
 async function handleLogin() {
+  if (loading.value) return
   if (taskCount.value >= maxTasks.value) { ElMessage.warning('服务器已满，请稍后再试'); return }
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return

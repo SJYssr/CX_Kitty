@@ -117,8 +117,8 @@ export class JobProcessor {
 
     // 空章节
     if (!jobs.length) {
-      logger.info(`${label} 空章节`);
-      await this._sendLog(`${label} 空章节`);
+      logger.info(`${label} 空章节，已跳过`);
+      await this._sendLog(`${label} 空章节，已跳过`);
       await this.chaoxing.studyEmptyPage(this.course, point);
       this._completedCount++;
       await this._sendProgress();
