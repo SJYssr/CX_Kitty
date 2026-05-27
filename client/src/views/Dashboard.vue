@@ -39,7 +39,7 @@
 
             <div style="display:flex;gap:8px;margin-bottom:12px">
               <el-button style="flex:1" @click="configVisible = true">配置</el-button>
-              <el-button type="primary" style="flex:1" :loading="starting" :disabled="runningTaskCount >= maxTaskCount" @click="start">
+              <el-button type="primary" style="flex:1" :loading="starting" :disabled="runningTaskCount >= maxTaskCount || selectedCourses.length === 0" @click="start">
                 {{ starting ? '启动中…' : startBtnText }}
               </el-button>
             </div>
@@ -280,6 +280,7 @@ const systemLoadClass = computed(() =>
 
 const startBtnText = computed(() => {
   if (starting.value) return '启动中…'
+  if (selectedCourses.value.length === 0) return '请先选择课程'
   if (runningTaskCount.value >= maxTaskCount.value) return '🚫 服务器已满'
   return '开始刷课'
 })
