@@ -252,16 +252,26 @@ export async function studyWork(cx, course, job, jobInfo) {
     );
 
     if (submitResp.status === 200) {
-      const resultText = typeof submitResp.data === 'string' ? submitResp.data : JSON.stringify(submitResp.data);
-      if (resultText.includes('success') || resultText.includes('成功') || resultText.includes('true')) {
-        logger.info(`答题完成: ${jobName}`);
+      const pyLabel = pyFlag === '1' ? '保存' : '提交';
+      let resJson;
+      try {
+        resJson = typeof submitResp.data === 'string' ? JSON.parse(submitResp.data) : submitResp.data;
+      } catch {
+        resJson = null;
+      }
+      if (resJson && resJson.status) {
+        logger.info(`${pyLabel}答题成功: ${jobName} — ${resJson.msg || ''}`);
         return StudyResult.SUCCESS;
       }
-      if (resultText.includes('未通过') || resultText.includes('错误') || resultText.includes('false')) {
-        logger.warn(`答题未通过: ${jobName} — ${resultText.substring(0, 100)}`);
+      if (resJson && !resJson.status) {
+        logger.warn(`${pyLabel}答题失败: ${jobName} — ${resJson.msg || JSON.stringify(resJson).substring(0, 100)}`);
+        return StudyResult.ERROR;
       }
+      logger.warn(`答题响应格式异常: ${jobName}`);
+      return StudyResult.ERROR;
     }
-    return StudyResult.SUCCESS;
+    logger.warn(`答题提交异常 HTTP ${submitResp.status}: ${jobName}`);
+    return StudyResult.ERROR;
   } catch (err) {
     logger.error(`答题失败: ${err.message}`);
     return StudyResult.ERROR;
