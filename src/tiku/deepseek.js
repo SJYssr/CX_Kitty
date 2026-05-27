@@ -149,12 +149,10 @@ export class TikuDeepSeek extends Tiku {
         return null;
       }
 
-      // 清理回答中的 markdown 和多余格式
+      // 清理回答中的 markdown 格式（保留字母前缀和空白，由 work-handler 的 matchAnswerToOption 统一处理）
       let answer = rawAnswer
         .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')  // 去加粗/斜体
         .replace(/`{1,3}[^`]*`{1,3}/g, '')           // 去代码块/行内代码
-        .replace(/^[A-Da-d][、.，,)\s]+/, '')         // 去开头字母前缀如 "A、"
-        .replace(/\s+/g, '')                           // 去所有空白
         .trim();
 
       if (!answer) return null;

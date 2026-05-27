@@ -44,6 +44,10 @@ const SIMILARITY_THRESHOLD = 0.55;
 function matchAnswerToOption(answer, options) {
   if (!answer || !options?.length) return null;
 
+  // 如果答案本身就是一个选项字母（如 "A" / "B、"），直接返回该字母
+  const bareLetter = answer.trim().match(/^[A-Da-d]$/);
+  if (bareLetter) return bareLetter[0].toUpperCase();
+
   // 去除答案中的字母前缀
   const cleanAnswer = answer.replace(/^[A-Da-d][、.，,)\s]*/, '').trim();
   if (!cleanAnswer) return null;
@@ -87,7 +91,16 @@ function matchAnswerToOption(answer, options) {
 function matchAnswerToMultipleOptions(answer, options) {
   if (!answer || !options?.length) return null;
 
-  const cleanAnswer = answer.replace(/\s+/g, '').trim();
+  const trimAnswer = answer.trim();
+
+  // 如果答案只是连续字母如 "AB" / "A,B,C"，直接提取字母
+  const bareLetters = trimAnswer.match(/^[A-Da-d][,;，；、\s]*[A-Da-d]$/);
+  if (bareLetters || /^[A-Da-d](?:[,;，；、\s]+[A-Da-d])+$/.test(trimAnswer)) {
+    const letters = [...trimAnswer.toUpperCase()].filter(ch => ch >= 'A' && ch <= 'D');
+    if (letters.length > 0) return [...new Set(letters)].sort().join('');
+  }
+
+  const cleanAnswer = trimAnswer.replace(/\s+/g, '');
   if (!cleanAnswer) return null;
 
   // 按分隔符拆分答案
