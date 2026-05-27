@@ -39,10 +39,10 @@ router.post('/study/start', async (req, res) => {
     // 创建新任务记录
     const [result] = await StudyTask.create(accounts[0].id, courseIds);
 
-    // 每个用户只保留最新 2 条记录
+    // 每个用户只保留最新 5 条记录
     const [rows] = await StudyTask.getRecentIds(accounts[0].id);
-    if (rows.length === 2) {
-      const cutoffId = rows[1].id;
+    if (rows.length >= 5) {
+      const cutoffId = rows[rows.length - 1].id;
       await StudyTask.deleteOldLogs(accounts[0].id, cutoffId);
       await StudyTask.deleteOldByAccount(accounts[0].id, cutoffId);
     }
