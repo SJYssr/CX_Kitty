@@ -18,7 +18,7 @@
               <span>课程列表</span>
               <el-button size="small" @click="loadCourses(true)" :loading="loadingCourses">刷新</el-button>
             </div>
-            <el-table :data="courses" stripe size="small" max-height="400" style="width:100%" @selection-change="onSelectionChange">
+            <el-table ref="courseTableRef" :data="courses" stripe size="small" max-height="400" style="width:100%" @selection-change="onSelectionChange">
               <el-table-column type="selection" width="40" />
               <el-table-column prop="title" label="课程" min-width="180" show-overflow-tooltip />
               <el-table-column prop="teacher" label="教师" width="100" />
@@ -160,6 +160,7 @@ const runningTaskCount = ref(0)
 const maxTaskCount = ref(50)
 const detailVisible = ref(false)
 const detailTask = ref(null)
+const courseTableRef = ref(null)
 const logContainer = ref(null)
 const liveLogs = ref([])
 let timer = null
@@ -386,6 +387,7 @@ async function loadCourses(force = false) {
     })
     if (data.success) {
       courses.value = data.courses
+      selectedCourses.value = []
       saveCoursesToCache()
     }
   } catch (e) { console.warn("loadCourses:", e?.message) } finally { loadingCourses.value = false }
@@ -582,7 +584,7 @@ onUnmounted(() => {
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
 .task-log-panel { height: 470px; display: flex; flex-direction: column; overflow: hidden; }
 .course-progress { flex-shrink: 0; }
-.log-container { flex: 1; min-height: 0; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6; }
+.log-container { flex: 1; min-height: 0; overflow-y: auto; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }
