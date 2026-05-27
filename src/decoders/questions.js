@@ -104,5 +104,5 @@ export function parseQuestions(html) {
     }
   }
 
-  return { formData, questions };
+  return { formData, questions, ttfBuffer };
 }

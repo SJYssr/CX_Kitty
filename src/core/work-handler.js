@@ -22,24 +22,62 @@ function isSubsequence(sub, full) {
 }
 
 /**
- * 字符串相似度 (Jaccard 字符集，适合中文文本比较)
+ * difflib.SequenceMatcher.ratio() 的 JS 实现
+ * 计算 2 * 匹配字符数 / (len(a) + len(b))，对中文文本匹配效果优于 Jaccard
+ * 参考 Python difflib.SequenceMatcher.ratio() 和 Samueli924/chaoxing
  */
-function stringSimilarity(a, b) {
+function sequenceMatcherRatio(a, b) {
   if (!a || !b) return 0;
   if (a === b) return 1;
-  const setA = new Set([...a]);
-  const setB = new Set([...b]);
-  let intersection = 0;
-  for (const c of setA) { if (setB.has(c)) intersection++; }
-  const union = setA.size + setB.size - intersection;
-  return union > 0 ? intersection / union : 0;
+
+  // 找到最长公共子序列 (LCS) 的长度
+  const m = a.length;
+  const n = b.length;
+  // 使用滚动数组优化空间
+  const dp = new Array(n + 1).fill(0);
+  for (let i = 1; i <= m; i++) {
+    let prev = 0;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      if (a[i - 1] === b[j - 1]) {
+        dp[j] = prev + 1;
+      } else {
+        dp[j] = Math.max(dp[j], dp[j - 1]);
+      }
+      prev = temp;
+    }
+  }
+  const matches = dp[n];
+  return (2.0 * matches) / (m + n);
 }
 
-const SIMILARITY_THRESHOLD = 0.55;
+/** 统一异体字符和去除标点，降低匹配差异 */
+function normalizeForMatch(text) {
+  if (!text) return '';
+  return text
+    .replace(/[⻛]/g, '风')
+    .replace(/[⻔]/g, '门')
+    .replace(/[⻋]/g, '车')
+    .replace(/[⻢]/g, '马')
+    .replace(/[，。！？；：、,.!?;:()（）\[\]【】"'"'""\-_/\\|\s]+/g, '')
+    .toLowerCase();
+}
+
+/** 去除选项前的字母编号，用于内容匹配 */
+function stripOptionPrefix(option) {
+  return (option || '').replace(/^[A-Za-z]\s*[.、:：)?）]?\s*/, '').trim();
+}
+
+const SIMILARITY_THRESHOLD = 0.8;
 
 /**
  * 将答案文本匹配到单个选项，返回选项字母，未匹配返回 null
- * 先尝试子序列匹配，再尝试模糊匹配
+ *
+ * 匹配策略（参考 Samueli924/chaoxing）：
+ * 1. 裸字母直接返回
+ * 2. 精确/包含匹配（原文 + 去字母前缀后）
+ * 3. 子序列匹配
+ * 4. SequenceMatcher 相似度兜底
  */
 function matchAnswerToOption(answer, options) {
   if (!answer || !options?.length) return null;
@@ -52,7 +90,7 @@ function matchAnswerToOption(answer, options) {
   const cleanAnswer = answer.replace(/^[A-Da-d][、.，,)\s]*/, '').trim();
   if (!cleanAnswer) return null;
 
-  // 1) 精确/包含匹配
+  // 1) 精确/包含匹配 — 原文
   for (let i = 0; i < options.length; i++) {
     const opt = options[i].trim();
     if (!opt) continue;
@@ -61,11 +99,20 @@ function matchAnswerToOption(answer, options) {
     }
   }
 
+  // 1b) 精确/包含匹配 — 移除选项字母前缀后再比较
+  for (let i = 0; i < options.length; i++) {
+    const stripped = stripOptionPrefix(options[i]);
+    if (!stripped) continue;
+    if (stripped === cleanAnswer || stripped.includes(cleanAnswer) || cleanAnswer.includes(stripped)) {
+      return String.fromCharCode(65 + i);
+    }
+  }
+
   // 2) 子序列匹配
   let bestSubIdx = -1;
   let bestSubLen = 0;
   for (let i = 0; i < options.length; i++) {
-    const opt = options[i].trim();
+    const opt = stripOptionPrefix(options[i]);
     if (isSubsequence(cleanAnswer, opt) && cleanAnswer.length > bestSubLen) {
       bestSubIdx = i;
       bestSubLen = cleanAnswer.length;
@@ -73,20 +120,33 @@ function matchAnswerToOption(answer, options) {
   }
   if (bestSubIdx >= 0) return String.fromCharCode(65 + bestSubIdx);
 
-  // 3) 模糊相似度匹配
+  // 3) SequenceMatcher 相似度兜底匹配
+  const normAnswer = normalizeForMatch(cleanAnswer);
+  if (!normAnswer) return null;
+
   let bestIdx = -1;
   let bestScore = 0;
   for (let i = 0; i < options.length; i++) {
-    const score = stringSimilarity(cleanAnswer, options[i].trim());
+    const normOpt = normalizeForMatch(stripOptionPrefix(options[i]));
+    if (!normOpt) continue;
+    const score = sequenceMatcherRatio(normAnswer, normOpt);
     if (score > bestScore) { bestScore = score; bestIdx = i; }
   }
-  if (bestScore >= SIMILARITY_THRESHOLD && bestIdx >= 0) return String.fromCharCode(65 + bestIdx);
+  if (bestScore >= SIMILARITY_THRESHOLD && bestIdx >= 0) {
+    logger.debug(`相似度兜底匹配: ${String.fromCharCode(65 + bestIdx)} (score=${bestScore.toFixed(2)})`);
+    return String.fromCharCode(65 + bestIdx);
+  }
 
   return null;
 }
 
 /**
  * 将答案文本匹配到多个选项（多选），返回排序后的字母串，未匹配返回 null
+ *
+ * 匹配策略（参考 Samueli924/chaoxing）：
+ * 1. 裸字母直接提取
+ * 2. 按分隔符拆分答案后逐部分匹配
+ * 3. 整体兜底匹配
  */
 function matchAnswerToMultipleOptions(answer, options) {
   if (!answer || !options?.length) return null;
@@ -94,8 +154,7 @@ function matchAnswerToMultipleOptions(answer, options) {
   const trimAnswer = answer.trim();
 
   // 如果答案只是连续字母如 "AB" / "A,B,C"，直接提取字母
-  const bareLetters = trimAnswer.match(/^[A-Da-d][,;，；、\s]*[A-Da-d]$/);
-  if (bareLetters || /^[A-Da-d](?:[,;，；、\s]+[A-Da-d])+$/.test(trimAnswer)) {
+  if (/^[A-Da-d](?:[,;，；、\s]+[A-Da-d])+$/.test(trimAnswer) || /^[A-Da-d]{2,4}$/.test(trimAnswer)) {
     const letters = [...trimAnswer.toUpperCase()].filter(ch => ch >= 'A' && ch <= 'D');
     if (letters.length > 0) return [...new Set(letters)].sort().join('');
   }
@@ -104,7 +163,8 @@ function matchAnswerToMultipleOptions(answer, options) {
   if (!cleanAnswer) return null;
 
   // 按分隔符拆分答案
-  const parts = cleanAnswer.split(/[#]{2,}|[,;，；、\n|]+/).map(p => p.trim()).filter(Boolean);
+  const splitChars = /[#]{2,}|[,;，；、\n|]+/;
+  const parts = cleanAnswer.split(splitChars).map(p => p.trim()).filter(Boolean);
 
   const letters = new Set();
   for (const part of parts) {
@@ -115,9 +175,20 @@ function matchAnswerToMultipleOptions(answer, options) {
   // 如果拆分匹配失败（可能是 LLM 没加分隔符），尝试整体匹配
   if (letters.size === 0) {
     for (let i = 0; i < options.length; i++) {
-      const opt = options[i].trim();
-      if (isSubsequence(opt, cleanAnswer) || stringSimilarity(opt, cleanAnswer) >= SIMILARITY_THRESHOLD) {
+      const stripped = stripOptionPrefix(options[i]);
+      if (isSubsequence(stripped, cleanAnswer)) {
         letters.add(String.fromCharCode(65 + i));
+      }
+    }
+    // 兜底：用相似度匹配
+    if (letters.size === 0) {
+      const normAnswer = normalizeForMatch(cleanAnswer);
+      for (let i = 0; i < options.length; i++) {
+        const normOpt = normalizeForMatch(stripOptionPrefix(options[i]));
+        if (!normOpt) continue;
+        if (sequenceMatcherRatio(normAnswer, normOpt) >= SIMILARITY_THRESHOLD) {
+          letters.add(String.fromCharCode(65 + i));
+        }
       }
     }
   }
@@ -177,14 +248,13 @@ export async function studyWork(cx, course, job, jobInfo) {
     let html = await _fetchWorkPage(cx, workParams, headers);
     if (!html) return StudyResult.ERROR;
 
-    // 如果 tiku 支持字体解密, 从 HTML 中提取自定义字体
-    if (typeof cx.tiku.setFont === 'function') {
-      const fontMatch = html.match(/data:font\/woff;base64,([A-Za-z0-9+/=]+)/);
-      if (fontMatch) cx.tiku.setFont(fontMatch[1]);
-    }
-
     const { parseQuestions } = await import('../decoders/questions.js');
-    const { formData, questions } = parseQuestions(html);
+    const { formData, questions, ttfBuffer } = parseQuestions(html);
+
+    // 统一字体解密：parseQuestions 提取的 TTF 字体同时喂给 tiku（参考 Samueli924/chaoxing）
+    if (typeof cx.tiku.setFont === 'function' && ttfBuffer) {
+      cx.tiku.setFont(ttfBuffer);
+    }
 
     if (!questions.length) {
       logger.info(`答题无题目: ${job.name || job.jobid}`);
