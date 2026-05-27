@@ -83,7 +83,7 @@
           任务记录
           <el-button size="small" @click="loadTasks" :loading="loadingTasks">刷新</el-button>
         </div>
-        <el-table :data="tasks" stripe size="small" max-height="240" style="width:100%" class="task-table">
+        <el-table :data="tasks" stripe size="small" max-height="152" style="width:100%" class="task-table">
           <el-table-column label="#" width="50">
             <template #default="{row}">{{ tasks.length - tasks.findIndex(t => t.id === row.id) }}</template>
           </el-table-column>
@@ -112,6 +112,12 @@
         </el-table>
       </section>
     </main>
+
+    <footer class="footer">
+      <div class="footer-line">SJYssr 2025-2026 豫ICP备2024069806号-4</div>
+      <div class="footer-line">该项目如果对您造成不良后果，需要您个人承担</div>
+      <div class="footer-line">一切解释权归SJYssr所有</div>
+    </footer>
 
     <!-- 任务详情弹窗 -->
     <!-- 配置弹窗 -->
@@ -202,7 +208,8 @@ function connectSSE(taskId) {
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
   // 不清空 liveLogs，重连时保留已有日志
 
-  const source = new EventSource('/api/study/logs/' + taskId)
+  const saved = JSON.parse(localStorage.getItem('cx_account') || '{}')
+  const source = new EventSource('/api/study/logs/' + taskId + '?token=' + (saved.token || ''))
   source.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data)
@@ -392,7 +399,7 @@ async function loadCourses(force = false) {
   loadingCourses.value = true
   try {
     const { data } = await axios.post('/api/courses', {
-      phone: props.account.phone, password: props.account.password
+      password: props.account.password
     })
     if (data.success) {
       courses.value = data.courses
@@ -407,7 +414,7 @@ function startPolling(taskId) {
   if (timer) clearInterval(timer);
   timer = setInterval(async () => {
     try {
-      const r = await axios.get('/api/study/status/' + taskId, { params: { phone: props.account.phone } })
+      const r = await axios.get('/api/study/status/' + taskId)
       if (r.data.success && r.data.task) {
         currentTask.value = r.data.task
         if (['completed','failed'].includes(r.data.task.status)) {
@@ -421,9 +428,7 @@ function startPolling(taskId) {
 async function loadTasks() {
   loadingTasks.value = true
   try {
-    const { data } = await axios.get('/api/study/tasks', {
-      params: { phone: props.account.phone }
-    })
+    const { data } = await axios.get('/api/study/tasks')
     if (data.success) {
       tasks.value = data.tasks
       // If no currentTask or currentTask is finished, check for latest running
@@ -442,7 +447,6 @@ async function start() {
   starting.value = true
   try {
     const { data } = await axios.post('/api/study/start', {
-      phone: props.account.phone,
       password: props.account.password,
       courseIds: selectedCourses.value.length > 0 ? selectedCourses.value : null,
       speed: 1,
@@ -477,7 +481,6 @@ async function rerunTask(task) {
   starting.value = true
   try {
     const { data } = await axios.post('/api/study/start', {
-      phone: props.account.phone,
       password: props.account.password,
       courseIds,
       speed: 1,
@@ -523,9 +526,7 @@ onMounted(() => {
   fetchSystemLoad()
   loadTimer = setInterval(fetchSystemLoad, 1000)
   const lastNotice = localStorage.getItem('cx_last_task_notice')
-  axios.get('/api/study/tasks', {
-    params: { phone: props.account.phone }
-  }).then(r => {
+  axios.get('/api/study/tasks').then(r => {
     if (!r.data.success || !r.data.tasks?.length) return
     const latest = r.data.tasks[0]
     // 仅在任务进行中时显示进度卡片
@@ -575,7 +576,7 @@ onUnmounted(() => {
 .user-name { color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.3; }
 .user-phone { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.3; }
 .system-load { color: rgba(255,255,255,0.6); font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; }
+.main { max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px; flex: 1; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .col { flex: 1; min-width: 300px; }
 .panel {
@@ -663,6 +664,9 @@ onUnmounted(() => {
 .el-table__body-wrapper::-webkit-scrollbar-track,
 .log-container::-webkit-scrollbar-track { background: transparent; }
 
+/* 底部声明 */
+.footer { padding: 12px 0; text-align: center; }
+.footer-line { color: rgba(255,255,255,0.45); font-size: 12px; line-height: 1.8; }
 /* 分页 */
 :deep(.el-pagination button) { background: transparent !important; color: rgba(255,255,255,0.7); }
 :deep(.el-pager li) { background: transparent !important; color: rgba(255,255,255,0.7); }

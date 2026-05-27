@@ -10,12 +10,12 @@ const router = Router();
 // 启动刷课任务
 router.post('/study/start', async (req, res) => {
   try {
-    let {
-      phone, password, courseIds
-    } = req.body;
+    let { password, courseIds } = req.body;
+    const phone = req.user.phone;
+    const accountId = req.user.id;
     courseIds = [...new Set(courseIds)];
 
-    if (!phone || !password) return res.json({ success: false, message: '请填写完整' });
+    if (!password) return res.json({ success: false, message: '请填写密码' });
 
     // 从 DB 读取账号配置（答题开关、自动提交、模型、DeepSeek Key）
     const [accounts] = await Account.findByPhone(phone, 'id, deepseek_api_key, deepseek_model, enable_answering, auto_submit');
@@ -34,17 +34,17 @@ router.post('/study/start', async (req, res) => {
     }
 
     // 终止该账号所有正在运行的任务
-    await StudyTask.terminateRunningByAccount(accounts[0].id);
+    await StudyTask.terminateRunningByAccount(accountId);
 
     // 创建新任务记录
-    const [result] = await StudyTask.create(accounts[0].id, courseIds);
+    const [result] = await StudyTask.create(accountId, courseIds);
 
     // 每个用户只保留最新 5 条记录
-    const [rows] = await StudyTask.getRecentIds(accounts[0].id);
+    const [rows] = await StudyTask.getRecentIds(accountId);
     if (rows.length >= 5) {
       const cutoffId = rows[rows.length - 1].id;
-      await StudyTask.deleteOldLogs(accounts[0].id, cutoffId);
-      await StudyTask.deleteOldByAccount(accounts[0].id, cutoffId);
+      await StudyTask.deleteOldLogs(accountId, cutoffId);
+      await StudyTask.deleteOldByAccount(accountId, cutoffId);
     }
     const taskId = result.insertId;
 
@@ -65,13 +65,7 @@ router.post('/study/start', async (req, res) => {
 
 router.get('/study/status/:taskId', async (req, res) => {
   try {
-    const phone = req.query.phone || '';
     const [rows] = await StudyTask.findById(req.params.taskId);
-    // 如果传了 phone，校验归属
-    if (phone && rows.length > 0) {
-      const [auth] = await StudyTask.findByIdAndPhone(req.params.taskId, phone);
-      if (!auth.length) return res.json({ success: true, task: null });
-    }
     res.json({ success: true, task: rows[0] || null });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -92,8 +86,7 @@ router.post('/study/terminate/:taskId', async (req, res) => {
 
 router.get('/study/tasks', async (req, res) => {
   try {
-    const phone = req.query.phone || '';
-    const [rows] = phone ? await StudyTask.findByPhone(phone) : await StudyTask.findAll();
+    const [rows] = await StudyTask.findByPhone(req.user.phone);
     res.json({ success: true, tasks: rows });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
@@ -104,11 +97,8 @@ router.get('/study/tasks', async (req, res) => {
 router.get('/study/logs/:taskId', async (req, res) => {
   const taskId = req.params.taskId;
 
-  // 先验证身份，再建立 SSE 连接
-  const phone = req.query.phone;
-  if (!phone) {
-    return res.status(401).json({ success: false, message: 'unauthorized' });
-  }
+  // 验证任务归属
+  const phone = req.user.phone;
   try {
     const [rows] = await StudyTask.findByIdAndPhone(taskId, phone);
     if (!rows.length) {

@@ -65,6 +65,16 @@ export class AccountDAO {
       [phone, hashedPassword, email, 'active']
     );
   }
+
+  /** 设置 session token（顶号：新登录覆盖旧 token） */
+  setSessionToken(phone, token) {
+    return this.pool.query('UPDATE accounts SET session_token = ? WHERE phone = ?', [token, phone]);
+  }
+
+  /** 根据 token 查找账号 */
+  findByToken(token) {
+    return this.pool.query('SELECT id, phone, name FROM accounts WHERE session_token = ?', [token]);
+  }
 }
 
 export const Account = new AccountDAO(pool);

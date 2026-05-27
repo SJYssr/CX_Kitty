@@ -12,6 +12,7 @@ import studyRoutes from './routes/study.js';
 import coursesRoutes from './routes/courses.js';
 import systemRoutes from './routes/system.js';
 import { sanitizeError } from './error.js';
+import { requireAuth } from './middleware/auth.js';
 import { StudyTask } from './models/study-task.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,22 +23,22 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
 
-// API 路由
-app.use('/api', accountRoutes);
+// 公开路由（无需认证）
 app.use('/api', authRoutes);
-app.use('/api', studyRoutes);
-app.use('/api', coursesRoutes);
 app.use('/api', systemRoutes);
-
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'OK', time: new Date().toISOString() });
 });
 
+// 需要认证的路由
+app.use('/api', requireAuth, accountRoutes);
+app.use('/api', requireAuth, studyRoutes);
+app.use('/api', requireAuth, coursesRoutes);
+
 // DeepSeek 余额查询（使用服务端保存的 API Key，不上传到前端）
-app.get('/api/balance', async (req, res) => {
+app.get('/api/balance', requireAuth, async (req, res) => {
   try {
-    const phone = req.query.phone;
-    if (!phone) return res.json({ success: false, message: '缺少手机号' });
+    const phone = req.user.phone;
 
     const [rows] = await pool.query(
       'SELECT deepseek_api_key FROM accounts WHERE phone = ?', [phone]
@@ -95,6 +96,15 @@ pool.query(
 ).catch(e => {
   if (!e.message.includes('Duplicate') && !e.message.includes('already exists')) {
     console.warn('  添加 notify_email 唯一索引失败:', e.message);
+  }
+});
+
+// 迁移：session_token 列（顶号策略）
+pool.query(
+  'ALTER TABLE accounts ADD COLUMN session_token VARCHAR(64) DEFAULT NULL'
+).catch(e => {
+  if (!e.message.includes('Duplicate') && !e.message.includes('already exists')) {
+    console.warn('  添加 session_token 列失败:', e.message);
   }
 });
 

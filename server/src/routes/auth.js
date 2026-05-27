@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { generateCode, verifyCode } from '../verify-code.js';
 import { sendVerifyCode } from '../../../src/notify/email.js';
 import { generateCaptcha, verifyCaptcha } from '../captcha.js';
@@ -53,7 +54,11 @@ router.post('/login', async (req, res) => {
       console.warn('获取用户信息失败:', e?.message || e);
     }
 
-    res.json({ success: true });
+    // 5. 生成 session token（顶号：新登录覆盖旧 token）
+    const token = crypto.randomBytes(32).toString('hex');
+    await Account.setSessionToken(phone, token);
+
+    res.json({ success: true, token });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
   }
@@ -82,6 +87,16 @@ router.post('/send-verify-code', async (req, res) => {
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
   }
+});
+
+/** 验证 token 是否有效（客户端检测顶号） */
+router.get('/auth/verify', async (req, res) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return res.json({ success: false, message: '未登录' });
+
+  const [rows] = await Account.findByToken(token);
+  res.json({ success: rows.length > 0 });
 });
 
 /** 注册 */

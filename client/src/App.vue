@@ -22,6 +22,7 @@ import axios from 'axios'
 const router = useRouter()
 const route = useRoute()
 const account = ref(null)
+const sessionToken = ref('')
 
 const taskCount = ref(0)
 const maxTasks = ref(50)
@@ -32,6 +33,28 @@ let countTimer = null
 const showTopBar = computed(() => route.name === 'Login' || route.name === 'Register')
 
 const SESSION_DURATION = 30 * 60 * 1000
+
+// axios 拦截器：自动附加 token，401 → 退出登录
+axios.interceptors.request.use(config => {
+  if (sessionToken.value) {
+    config.headers.Authorization = 'Bearer ' + sessionToken.value
+  }
+  return config
+})
+axios.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      sessionToken.value = ''
+      account.value = null
+      localStorage.removeItem('cx_account')
+      if (route.name !== 'Login' && route.name !== 'Register') {
+        router.push('/login')
+      }
+    }
+    return Promise.reject(err)
+  }
+)
 
 async function fetchTaskCount() {
   try {
@@ -44,17 +67,20 @@ async function fetchTaskCount() {
 }
 
 async function onLogin(data) {
-  account.value = data
+  account.value = { phone: data.phone, password: data.password }
+  sessionToken.value = data.token
   try {
-    const { data: cfg } = await axios.get('/api/account/config', { params: { phone: data.phone } })
+    const { data: cfg } = await axios.get('/api/account/config')
     if (cfg.success && cfg.config) {
-      account.value = { ...data, ...cfg.config }
+      account.value = { ...account.value, ...cfg.config }
     }
   } catch (e) {
     console.warn('加载服务端配置失败:', e?.message || e)
   }
   localStorage.setItem('cx_account', JSON.stringify({
-    ...account.value,
+    phone: data.phone,
+    password: data.password,
+    token: data.token,
     _expiresAt: Date.now() + SESSION_DURATION
   }))
   router.push('/dashboard')
@@ -70,6 +96,7 @@ function goBack() {
 
 function onLogout() {
   account.value = null
+  sessionToken.value = ''
   localStorage.removeItem('cx_account')
   router.push('/login')
 }
@@ -81,19 +108,33 @@ onMounted(() => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved)
-      if (!parsed.password || (parsed._expiresAt && Date.now() > parsed._expiresAt)) {
+      if (!parsed.password || !parsed.token || (parsed._expiresAt && Date.now() > parsed._expiresAt)) {
         localStorage.removeItem('cx_account')
         router.push('/login')
         return
       }
-      account.value = parsed
-      // 刷新服务端配置（含姓名等）
-      axios.get('/api/account/config', { params: { phone: parsed.phone } }).then(({ data: cfg }) => {
-        if (cfg.success && cfg.config) {
-          account.value = { ...account.value, ...cfg.config }
+      sessionToken.value = parsed.token
+      // 先验证 token 有效性（检测是否被顶号）
+      axios.get('/api/auth/verify').then(({ data }) => {
+        if (!data.success) {
+          // token 已失效 → 被顶号
+          localStorage.removeItem('cx_account')
+          sessionToken.value = ''
+          router.push('/login')
+          return
         }
-      }).catch(() => {})
-      router.push('/dashboard')
+        account.value = parsed
+        // 刷新服务端配置（含姓名等）
+        axios.get('/api/account/config').then(({ data: cfg }) => {
+          if (cfg.success && cfg.config) {
+            account.value = { ...account.value, ...cfg.config }
+          }
+        }).catch(() => {})
+        router.push('/dashboard')
+      }).catch(() => {
+        localStorage.removeItem('cx_account')
+        router.push('/login')
+      })
     } catch (e) {
       console.warn('解析 localStorage 失败:', e?.message || e)
       localStorage.removeItem('cx_account')

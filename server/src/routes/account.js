@@ -9,8 +9,9 @@ const router = Router();
 // 保存/更新账号（含 AI 配置）
 router.post('/account/save', async (req, res) => {
   try {
-    const { phone, password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, notifyEmail } = req.body;
-    if (!phone || !password) return res.json({ success: false, message: '手机号和密码不能为空' });
+    const { password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, notifyEmail } = req.body;
+    const phone = req.user.phone;
+    if (!password) return res.json({ success: false, message: '密码不能为空' });
 
     // 邮箱格式 + 重复校验
     if (notifyEmail) {
@@ -49,8 +50,7 @@ router.post('/account/save', async (req, res) => {
 // 获取账号配置
 router.get('/account/config', async (req, res) => {
   try {
-    const phone = req.query.phone;
-    if (!phone) return res.json({ success: false, message: '缺少手机号' });
+    const phone = req.user.phone;
 
     const [rows] = await Account.findByPhone(phone, 'id, phone, name, deepseek_api_key, deepseek_model, enable_answering, auto_submit, notify_email');
     if (!rows.length) return res.json({ success: false, message: '账号不存在' });
@@ -80,8 +80,9 @@ router.get('/account/config', async (req, res) => {
 // 获取/刷新用户个人信息
 router.post('/account/info', async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    if (!phone || !password) return res.json({ success: false, message: '缺少手机号或密码' });
+    const { password } = req.body;
+    const phone = req.user.phone;
+    if (!password) return res.json({ success: false, message: '缺少密码' });
 
     const chaoxing = createStandalone({ phone, password }, { fastMode: true });
 

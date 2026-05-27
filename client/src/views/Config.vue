@@ -90,7 +90,7 @@ async function queryBalance() {
   checking.value = true
   balance.value = null
   try {
-    const { data } = await axios.get('/api/balance', { params: { phone: props.account.phone } })
+    const { data } = await axios.get('/api/balance')
     if (data.success) balance.value = data.balance
   } catch (e) { console.warn("queryBalance:", e?.message) } finally { checking.value = false }
 }
@@ -103,7 +103,6 @@ async function save() {
   error.value = ''
   try {
     const body = {
-      phone: props.account.phone,
       password: props.account.password,
       deepseekModel: form.value.deepseekModel,
       enableAnswering: form.value.enableAnswering,
@@ -131,7 +130,7 @@ onMounted(async () => {
   // 先从数据库加载已有配置
   if (props.account?.phone) {
     try {
-      const { data } = await axios.get('/api/account/config', { params: { phone: props.account.phone } })
+      const { data } = await axios.get('/api/account/config')
       if (data.success && data.config) {
         hasKey.value = data.config.has_deepseek_key || false
         maskedKey.value = data.config.deepseek_key_masked || ''
