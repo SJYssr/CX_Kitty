@@ -1,10 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import pool from './db.js';
 import accountRoutes from './routes/account.js';
 import authRoutes from './routes/auth.js';

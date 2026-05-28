@@ -65,7 +65,7 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
 
   logger.info(`${jobName} 开始, 总时长: ${duration}秒`);
 
-  // 立即推送初始进度，前端不必等 10 秒
+  // 立即推送初始进度（仅在确认需要播放之后）
   if (cx._onProgress) {
     try { await cx._onProgress({ type: 'video_progress', name: jobName, currentTime: Math.floor(playTime), duration }); } catch {}
     lastProgressEmit = playTime;

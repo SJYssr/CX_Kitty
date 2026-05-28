@@ -30,10 +30,11 @@
           <div class="panel task-log-panel">
             <div class="panel-header">
               任务日志
-              <span v-if="currentTask" style="font-weight:normal;font-size:12px">
-                #{{ getTaskIndex(currentTask.id) }} ·
+              <span v-if="currentTask" style="font-weight:normal;font-size:12px;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:8px">
+                #{{ getTaskIndex(currentTask.id) }}
+                <span style="color:rgba(255,255,255,0.4)">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</span>
                 <el-tag :type="taskTag" size="small">{{ taskText }}</el-tag>
-                <el-button v-if="currentTask.status==='running'" size="small" type="danger" plain style="margin-left:6px" @click="terminateTask(currentTask.id)">终止</el-button>
+                <el-button v-if="currentTask.status==='running'" size="small" type="danger" plain @click="terminateTask(currentTask.id)">终止</el-button>
               </span>
             </div>
 
@@ -44,41 +45,34 @@
               </el-button>
             </div>
 
-            <div class="task-body">
-              <!-- 左侧：日志 + 视频进度 -->
-              <div class="task-left">
-                <!-- 当前视频进度（支持并发多视频） -->
-                <div v-for="v in currentVideos" :key="v.name" class="video-progress">
-                  <span class="video-name">{{ v.name }}</span>
-                  <el-progress class="video-bar" :percentage="v.percent" :stroke-width="4" :show-text="true" />
-                  <span class="video-detail">{{ formatTime(v.currentTime) }}/{{ formatTime(v.duration) }}</span>
-                </div>
+            <!-- 课程进度 -->
+            <div v-if="currentTask" class="course-progress">
+              <div class="course-name">{{ currentCourse?.title || taskCourseName }}</div>
+              <div class="course-row">
+                <el-progress v-if="currentCourse" class="course-bar" :percentage="currentCourse.percent" :status="currentCourse.finished ? 'success' : ''" :stroke-width="10" :show-text="false" />
+                <div v-else class="waiting-bar"></div>
+                <span class="course-detail">{{ currentCourse && currentCourse.total > 0 ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待中...' }}</span>
+              </div>
+            </div>
 
-                <!-- 实时日志 -->
-                <div ref="logContainer" class="log-container">
-                  <div v-if="taskLogs.length">
-                    <div v-for="(log, i) in taskLogs" :key="i" class="log-line">
-                      <span class="log-time">{{ log.t }}</span>
-                      <span class="log-text">{{ log.text }}</span>
-                    </div>
-                  </div>
-                  <div v-else-if="currentTask" style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">等待任务日志...</div>
-                  <div v-else style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">暂无正在运行的任务</div>
+            <!-- 当前视频进度 -->
+            <div v-for="v in currentVideos" :key="v.name" class="video-progress">
+              <span class="video-name">{{ v.name }}</span>
+              <el-progress class="video-bar" :percentage="v.percent" :stroke-width="4" :show-text="false" />
+              <span class="video-pct">{{ v.percent }}%</span>
+              <span class="video-time">{{ formatTime(v.currentTime) }}/{{ formatTime(v.duration) }}</span>
+            </div>
+
+            <!-- 实时日志 -->
+            <div ref="logContainer" class="log-container">
+              <div v-if="taskLogs.length">
+                <div v-for="(log, i) in taskLogs" :key="i" class="log-line">
+                  <span class="log-time">{{ log.t }}</span>
+                  <span class="log-text">{{ log.text }}</span>
                 </div>
               </div>
-
-              <!-- 右侧：课程进度（任务存在就显示） -->
-              <div v-if="currentTask" class="course-progress">
-                <div class="course-item">
-                  <div class="course-name">{{ currentCourse?.title || taskCourseName }}</div>
-                  <div class="course-row">
-                    <el-progress v-if="currentCourse" class="course-bar" :percentage="currentCourse.percent" :status="currentCourse.finished ? 'success' : ''" :stroke-width="10" :show-text="false" />
-                    <div v-else class="waiting-bar"></div>
-                    <span class="course-detail">{{ currentCourse && currentCourse.total > 0 ? (currentCourse.completed + '/' + currentCourse.total + ' 章节') : '等待中...' }}</span>
-                  </div>
-                </div>
-                <div class="course-summary">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</div>
-              </div>
+              <div v-else-if="currentTask" style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">等待任务日志...</div>
+              <div v-else style="text-align:center;padding:40px 0;color:rgba(255,255,255,0.3);font-size:12px">暂无正在运行的任务</div>
             </div>
           </div>
         </div>
@@ -225,14 +219,30 @@ async function connectSSE(taskId) {
     try {
       const entry = JSON.parse(e.data)
       if (entry.type === 'video_progress' && Array.isArray(entry.videos)) {
-        currentVideos.value = entry.videos.map(v => ({
-          name: v.name,
-          currentTime: v.currentTime,
-          duration: v.duration,
-          percent: v.duration > 0 ? Math.round(v.currentTime / v.duration * 100) : 0
-        }))
+        // 增量更新：仅在视频列表变化时调整数组结构，避免整体替换导致闪烁
+        const newNames = new Set(entry.videos.map(v => v.name))
+        const oldMap = new Map(currentVideos.value.map(v => [v.name, v]))
+        const merged = []
+        for (const v of entry.videos) {
+          const pct = v.duration > 0 ? Math.round(v.currentTime / v.duration * 100) : 0
+          merged.push({ name: v.name, currentTime: v.currentTime, duration: v.duration, percent: pct })
+        }
+        // 仅在新视频加入/移除时才重建数组，否则原地修改
+        const oldNames = new Set(currentVideos.value.map(v => v.name))
+        const changed = newNames.size !== oldNames.size || [...newNames].some(n => !oldNames.has(n))
+        if (changed) {
+          currentVideos.value = merged
+        } else {
+          // 原地更新各字段
+          merged.forEach((v, i) => {
+            if (currentVideos.value[i]) {
+              currentVideos.value[i].currentTime = v.currentTime
+              currentVideos.value[i].duration = v.duration
+              currentVideos.value[i].percent = v.percent
+            }
+          })
+        }
       } else {
-        // log or legacy format
         liveLogs.value.push(entry)
         if (liveLogs.value.length > 300) liveLogs.value = liveLogs.value.slice(-200)
       }
@@ -622,33 +632,25 @@ onUnmounted(() => {
 }
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
 .task-log-panel { height: 470px; display: flex; flex-direction: column; overflow: hidden; }
-.course-progress { flex-shrink: 0; }
-.task-body { display: flex; gap: 16px; flex: 1; min-height: 0; }
-.task-left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.course-progress { flex-shrink: 0; margin-bottom: 6px; }
+.course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
+.course-row { display: flex; align-items: center; gap: 10px; }
+.course-bar { flex: 1; }
+.course-detail { font-size: 11px; color: rgba(255,255,255,0.5); flex-shrink: 0; white-space: nowrap; }
+.waiting-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); }
+
 .log-container { flex: 1; min-height: 0; overflow-y: auto; font-size: 12px; line-height: 1.6; }
 .log-line { padding: 1px 0; }
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }
 
-.detail-course-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.detail-course-item:last-child { border-bottom: none; }
-.detail-course-title { font-size: 14px; font-weight: 500; color: #fff; }
-.detail-course-meta { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
-
-.time { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 8px; text-align: center; }
-.course-progress { flex-shrink: 0; width: 200px; }
-.course-item { margin-bottom: 10px; }
-.course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
-.course-row { display: flex; align-items: center; gap: 10px; }
-.course-detail { font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0; white-space: nowrap; }
-.course-bar { flex: 1; min-width: 80px; }
-.waiting-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); }
-.course-summary { font-size: 11px; color: rgba(255,255,255,0.5); text-align: right; margin-top: 2px; }
-.video-progress { display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 3px 8px; background: rgba(99,102,241,0.12); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); }
-.video-name { font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.video-bar { flex: 1; min-width: 60px; }
-.video-bar :deep(.el-progress__text) { font-size: 10px; color: rgba(255,255,255,0.5) !important; }
-.video-detail { font-size: 10px; color: rgba(255,255,255,0.5); flex-shrink: 0; white-space: nowrap; }
+.video-progress { display: flex; align-items: center; gap: 6px; margin: 3px 0; padding: 2px 8px; background: rgba(99,102,241,0.12); border-radius: 4px; }
+.video-name { font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.video-bar { flex: 1; min-width: 40px; }
+.video-bar :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
+.video-pct { font-size: 10px; color: rgba(255,255,255,0.4); flex-shrink: 0; width: 26px; text-align: right; }
+.video-time { font-size: 10px; color: rgba(255,255,255,0.5); flex-shrink: 0; white-space: nowrap; }
 
 /* 表格毛玻璃 */
 :deep(.el-table) { background: transparent; color: #fff; }
