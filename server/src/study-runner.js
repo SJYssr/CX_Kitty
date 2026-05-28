@@ -41,6 +41,11 @@ export async function runStudy(params) {
     abortController.abort();
   });
 
+  // 任务结束时清理视频缓存
+  const _cleanupVideoCache = () => {
+    bus._videoCache.delete(taskId);
+  };
+
   const updateStatus = async (status, progress) => {
     try {
       if (status !== 'failed') {
@@ -230,7 +235,7 @@ export async function runStudy(params) {
       : [];
 
     await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
-    if (_terminated) return;
+    if (_terminated) { _cleanupVideoCache(); return; }
 
     // 发送完成通知邮件
     try {
@@ -261,5 +266,7 @@ export async function runStudy(params) {
     if (!_terminated) {
       await updateStatus('failed', JSON.stringify({ error: err.message }));
     }
+  } finally {
+    _cleanupVideoCache();
   }
 }

@@ -113,11 +113,14 @@ export class StudyTaskDAO {
   /** 插入任务日志，超过 500 条自动清理最旧的 */
   async insertLog(taskId, time, text) {
     await this.pool.query('INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)', [taskId, time, text]);
-    // 单任务日志上限 500，异步清理不阻塞
-    this.pool.query(
-      'DELETE FROM task_logs WHERE task_id = ? AND id NOT IN (SELECT id FROM (SELECT id FROM task_logs WHERE task_id = ? ORDER BY id DESC LIMIT 500) AS t)',
-      [taskId, taskId]
-    ).catch(e => console.warn('cleanupLogs 失败: ' + (e.message || e)));
+    // 单任务日志上限 500，超过阈值才异步清理，避免无用的 DELETE
+    const [[{ cnt }]] = await this.pool.query('SELECT COUNT(*) AS cnt FROM task_logs WHERE task_id = ?', [taskId]);
+    if (cnt > 500) {
+      this.pool.query(
+        'DELETE FROM task_logs WHERE task_id = ? AND id NOT IN (SELECT id FROM (SELECT id FROM task_logs WHERE task_id = ? ORDER BY id DESC LIMIT 500) AS t)',
+        [taskId, taskId]
+      ).catch(e => console.warn('cleanupLogs 失败: ' + (e.message || e)));
+    }
   }
 
   /** 查任务日志 */

@@ -158,6 +158,7 @@ router.get('/study/logs/:taskId', async (req, res) => {
 
   req.on('close', cleanup);
   req.on('error', cleanup);
+  res.on('close', cleanup);  // 双保险：res close 也触发清理
 });
 
 // 从 task_logs 表获取历史日志
