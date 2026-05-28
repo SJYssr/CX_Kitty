@@ -71,7 +71,7 @@ export class JobProcessor {
       courseTitle: this.course.title,
       courseId: this.course.courseId,
       total: this.chapterPoints.length,
-      completed: this._completedCount
+      completed: this._completedCount + this._notOpenCount
     };
     if (typeof this.chaoxing._onProgress === 'function') {
       await this.chaoxing._onProgress(msg);
