@@ -69,7 +69,10 @@ router.post('/study/start', async (req, res) => {
 router.get('/study/status/:taskId', async (req, res) => {
   try {
     const [rows] = await StudyTask.findById(req.params.taskId);
-    res.json({ success: true, task: rows[0] || null });
+    const task = rows[0] || null;
+    // 附带当前活跃视频进度，前端刷新时无需等待 SSE 即可显示
+    const videos = task ? bus.getActiveVideos(req.params.taskId) : [];
+    res.json({ success: true, task, videos });
   } catch (err) {
     res.json({ success: false, message: sanitizeError(err) });
   }
@@ -123,7 +126,7 @@ router.get('/study/logs/:taskId', async (req, res) => {
 
   const writeSafe = (data) => {
     if (!destroyed && !res.writableEnded) {
-      try { res.write(data); } catch { destroyed = true; }
+      try { res.write(data); } catch { destroyed = true; cleanup(); }
     }
   };
 
