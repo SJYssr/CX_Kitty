@@ -82,22 +82,23 @@ export async function runStudy(params) {
   };
 
   const writeProgress = async (msg) => {
-    // 串行化写入：通过锁保证每次 read-modify-write 是原子的
+    // 日志消息：无锁，SSE 即时推送 + 独立表写入，不阻塞进度更新
+    if (msg.type === 'log' && msg.text) {
+      if (_terminated) return;
+      const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
+      bus.emit('log:' + taskId, entry);
+      // fire-and-forget 写 DB，不阻塞后续处理
+      StudyTask.insertLog(taskId, entry.t, entry.text).catch(e =>
+        console.warn('insertLog 失败: ' + (e.message || e))
+      );
+      return;
+    }
+
+    // 进度/心跳：串行化 read-modify-write，防止并发覆盖
     await withProgressLock(async () => {
       try {
         const p = await readProgress();
         p.timestamp = new Date().toISOString();
-
-        if (msg.type === 'log' && msg.text) {
-          if (_terminated) return;
-          const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
-          bus.emit('log:' + taskId, entry);
-          await StudyTask.insertLog(taskId, entry.t, entry.text);
-          if (!Array.isArray(p.logs)) p.logs = [];
-          p.logs.push(entry);
-          await StudyTask.updateProgress(taskId, p);
-          return;
-        }
 
         if (msg.total > 0) {
           if (!p.courses) p.courses = {};

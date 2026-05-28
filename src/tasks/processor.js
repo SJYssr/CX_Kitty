@@ -132,10 +132,11 @@ export class JobProcessor {
     for (const job of jobs) {
       const jobName = job.name || job.jobid;
       const jobKey = job.jobid || jobName;
+      // 同时用去掉 "work-" 前缀的 key，防止跨章节 jobid 格式差异导致重复提交
+      const bareKey = jobKey.replace(/^work-/, '');
       const typeLabel = TYPE_LABEL[job.type] || (job.type || '任务');
 
-      // 如果这个 job 已经在本次运行中完成过，跳过
-      if (this._completedJobIds.has(jobKey)) {
+      if (this._completedJobIds.has(jobKey) || this._completedJobIds.has(bareKey)) {
         await this._sendLog(`  ✅ ${typeLabel}: ${jobName} 已跳过（之前已完成）`);
         continue;
       }
@@ -149,6 +150,7 @@ export class JobProcessor {
       } else {
         await this._sendLog(`  ✅ ${typeLabel}: ${jobName} 完成`);
         this._completedJobIds.add(jobKey);
+        this._completedJobIds.add(bareKey);
       }
     }
 

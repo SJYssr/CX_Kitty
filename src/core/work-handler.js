@@ -248,6 +248,16 @@ export async function studyWork(cx, course, job, jobInfo) {
     let html = await _fetchWorkPage(cx, workParams, headers);
     if (!html) return StudyResult.ERROR;
 
+    // 检查是否为已提交/未创建的测验（参考 Samueli924/chaoxing）
+    if (html.includes('教师未创建完成该测验')) {
+      logger.info(`答题跳过 (教师未创建完成): ${jobName}`);
+      return StudyResult.SUCCESS;
+    }
+    if (/已提交|已完成|已经提交|已经完成|已批阅/.test(html)) {
+      logger.info(`答题跳过 (已提交/已完成): ${jobName}`);
+      return StudyResult.SUCCESS;
+    }
+
     const { parseQuestions } = await import('../decoders/questions.js');
     const { formData, questions, ttfBuffer } = parseQuestions(html);
 
@@ -362,7 +372,13 @@ export async function studyWork(cx, course, job, jobInfo) {
         return StudyResult.SUCCESS;
       }
       if (resJson && !resJson.status) {
-        logger.warn(`${pyLabel}答题失败: ${jobName} — ${resJson.msg || JSON.stringify(resJson).substring(0, 100)}`);
+        const msg = resJson.msg || JSON.stringify(resJson).substring(0, 100);
+        // 已经提交过/无权限 → 视为已完成，不报错
+        if (/无效的课程|已提交|已批阅|已经提交|不允许|不能重复/.test(msg)) {
+          logger.info(`答题已完成 (服务器: ${msg}): ${jobName}`);
+          return StudyResult.SUCCESS;
+        }
+        logger.warn(`${pyLabel}答题失败: ${jobName} — ${msg}`);
         return StudyResult.ERROR;
       }
       logger.warn(`答题响应格式异常: ${jobName}`);
