@@ -228,11 +228,8 @@ export async function runStudy(params) {
       await processor.run();
     }
 
-    // 在 updateStatus 覆写进度前，先读取课程名用于邮件通知
-    const finalProgress = await readProgress();
-    const courseNames = finalProgress.courses
-      ? Object.values(finalProgress.courses).filter(c => c.completed > 0).map(c => c.title)
-      : [];
+    // 用 targetCourses 的完整标题，避免 progress JSON 中 courseTitle 被截断或遗漏
+    const courseNames = targetCourses.map(c => c.title);
 
     await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
     if (_terminated) { _cleanupVideoCache(); return; }
