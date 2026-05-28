@@ -51,11 +51,11 @@ export class StudyTaskDAO {
     );
   }
 
-  /** 更新任务状态 */
+  /** 更新任务状态。progress 为 null/undefined 时保留已有值 */
   updateStatus(taskId, status, progress) {
     return this.pool.query(
-      'UPDATE study_tasks SET status = ?, progress = ?, finished_at = NOW() WHERE id = ?',
-      [status, progress || '{}', taskId]
+      'UPDATE study_tasks SET status = ?, progress = COALESCE(?, progress), finished_at = NOW() WHERE id = ?',
+      [status, progress ?? null, taskId]
     );
   }
 

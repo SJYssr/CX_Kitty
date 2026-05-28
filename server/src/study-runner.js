@@ -168,7 +168,7 @@ export async function runStudy(params) {
     // 强制密码登录，避免 SessionManager 单例串号
     const loginResult = await chaoxing.login(false);
     if (!loginResult.status) {
-      await updateStatus('failed', JSON.stringify({ error: '登录失败: ' + loginResult.msg }));
+      await updateStatus('failed', JSON.stringify({ error: '登录失败: ' + (loginResult.msg || '未知原因') }));
       return;
     }
 
@@ -186,14 +186,14 @@ export async function runStudy(params) {
 
     // 用户没选课 → 不刷，直接完成
     if (!courseIds || courseIds.length === 0) {
-      await updateStatus('completed', JSON.stringify({ note: '未选择课程' }));
+      await updateStatus('completed');
       return;
     }
 
     // 筛选用户选择的课程
     let targetCourses = allCourses.filter(c => courseIds.includes(c.courseId));
     if (targetCourses.length === 0) {
-      await updateStatus('completed', JSON.stringify({ note: '所选课程ID无效，请重新选择' }));
+      await updateStatus('completed');
       return;
     }
 
@@ -231,7 +231,7 @@ export async function runStudy(params) {
     // 用 targetCourses 的完整标题，避免 progress JSON 中 courseTitle 被截断或遗漏
     const courseNames = targetCourses.map(c => c.title);
 
-    await updateStatus('completed', JSON.stringify({ note: 'all_done' }));
+    await updateStatus('completed');
     if (_terminated) { _cleanupVideoCache(); return; }
 
     // 发送完成通知邮件
@@ -261,7 +261,7 @@ export async function runStudy(params) {
     }
   } catch (err) {
     if (!_terminated) {
-      await updateStatus('failed', JSON.stringify({ error: err.message }));
+      await updateStatus('failed', JSON.stringify({ error: String(err?.message ?? err) }));
     }
   } finally {
     _cleanupVideoCache();
