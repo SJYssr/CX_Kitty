@@ -61,22 +61,36 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
   let waitTime = randomInt(30, 90);
   let currentDtoken = dtoken;
   let passed = false;
+  let lastProgressEmit = -10;  // 负数确保首次立即推送，之后每 10 秒节流
 
   logger.info(`${jobName} 开始, 总时长: ${duration}秒`);
 
+  // 立即推送初始进度，前端不必等 10 秒
+  if (cx._onProgress) {
+    try { await cx._onProgress({ type: 'video_progress', name: jobName, currentTime: Math.floor(playTime), duration }); } catch {}
+    lastProgressEmit = playTime;
+  }
+
+  // 通知前端清理视频进度条（early return 路径复用）
+  const _notifyVideoDone = () => {
+    if (cx._onProgress) {
+      try { cx._onProgress({ type: 'video_done', name: jobName }); } catch {}
+    }
+  };
+
   while (!passed) {
-    if (_isTerminated()) return StudyResult.SUCCESS;
+    if (_isTerminated()) { _notifyVideoDone(); return StudyResult.SUCCESS; }
 
     // 每 waitTime 秒视频时间发送一次心跳, 或到达 duration 时也发送 (可能需要多次才能完成)
     if (playTime - lastLogTime >= waitTime || playTime >= duration) {
       const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
-      if (result.status === -1) return StudyResult.SUCCESS;
+      if (result.status === -1) { _notifyVideoDone(); return StudyResult.SUCCESS; }
       if (result.status === 403) {
-        logger.warn(`${jobName} 403, 跳过`); return StudyResult.FORBIDDEN;
+        logger.warn(`${jobName} 403, 跳过`); _notifyVideoDone(); return StudyResult.FORBIDDEN;
       }
       passed = result.passed;
-      if (passed) { logger.info(`${jobName} 完成`); return StudyResult.SUCCESS; }
-      if (!passed && result.status !== 200) return StudyResult.ERROR;
+      if (passed) { logger.info(`${jobName} 完成`); _notifyVideoDone(); return StudyResult.SUCCESS; }
+      if (!passed && result.status !== 200) { _notifyVideoDone(); return StudyResult.ERROR; }
 
       waitTime = randomInt(30, 90);
       lastLogTime = playTime;
@@ -92,8 +106,19 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     if (process.stdout.clearLine) process.stdout.clearLine(0);
     process.stdout.write(`\r${progressStr}`);
 
+    // 视频进度推送（节流10秒），前端展示当前播放进度条
+    if (cx._onProgress && playTime - lastProgressEmit >= 10) {
+      lastProgressEmit = playTime;
+      try {
+        await cx._onProgress({ type: 'video_progress', name: jobName, currentTime: Math.floor(playTime), duration });
+      } catch {} // 不阻塞视频循环
+    }
+
     await sleep(THRESHOLD * 1000);
   }
+
+  // 正常完成（循环退出）— 通知前端移除进度条
+  _notifyVideoDone();
 
   logger.info(`${jobName} 完成`);
   return StudyResult.SUCCESS;

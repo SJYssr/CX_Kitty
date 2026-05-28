@@ -87,10 +87,25 @@ export async function runStudy(params) {
       if (_terminated) return;
       const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
       bus.emit('log:' + taskId, entry);
-      // fire-and-forget 写 DB，不阻塞后续处理
       StudyTask.insertLog(taskId, entry.t, entry.text).catch(e =>
         console.warn('insertLog 失败: ' + (e.message || e))
       );
+      return;
+    }
+
+    // 视频进度：SSE 实时推送 + 缓存（支持多视频并发）
+    if (msg.type === 'video_progress') {
+      if (_terminated) return;
+      const data = { name: msg.name, currentTime: msg.currentTime, duration: msg.duration };
+      bus.updateVideo(taskId, data);
+      bus.emit('video:' + taskId, { videos: bus.getActiveVideos(taskId) });
+      return;
+    }
+
+    // 视频完成：从活跃列表移除
+    if (msg.type === 'video_done') {
+      bus.removeVideo(taskId, msg.name);
+      bus.emit('video:' + taskId, { videos: bus.getActiveVideos(taskId) });
       return;
     }
 

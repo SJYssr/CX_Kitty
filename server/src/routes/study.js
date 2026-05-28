@@ -128,10 +128,21 @@ router.get('/study/logs/:taskId', async (req, res) => {
   };
 
   const onLog = (entry) => {
-    writeSafe(`data: ${JSON.stringify(entry)}\n\n`);
+    writeSafe(`data: ${JSON.stringify({ type: 'log', ...entry })}\n\n`);
+  };
+
+  const onVideo = (data) => {
+    writeSafe(`data: ${JSON.stringify({ type: 'video_progress', ...data })}\n\n`);
   };
 
   bus.on('log:' + taskId, onLog);
+  bus.on('video:' + taskId, onVideo);
+
+  // 连接时立即推送缓存中的所有活跃视频进度
+  const cachedVideos = bus.getActiveVideos(taskId);
+  if (cachedVideos.length > 0) {
+    writeSafe(`data: ${JSON.stringify({ type: 'video_progress', videos: cachedVideos })}\n\n`);
+  }
 
   // 30秒心跳保活
   const keepAlive = setInterval(() => {
@@ -142,6 +153,7 @@ router.get('/study/logs/:taskId', async (req, res) => {
     destroyed = true;
     clearInterval(keepAlive);
     bus.off('log:' + taskId, onLog);
+    bus.off('video:' + taskId, onVideo);
   };
 
   req.on('close', cleanup);

@@ -110,9 +110,14 @@ export class StudyTaskDAO {
     return this.pool.query('DELETE FROM study_tasks WHERE account_id = ? AND id < ?', [accountId, cutoffId]);
   }
 
-  /** 插入任务日志 */
-  insertLog(taskId, time, text) {
-    return this.pool.query('INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)', [taskId, time, text]);
+  /** 插入任务日志，超过 500 条自动清理最旧的 */
+  async insertLog(taskId, time, text) {
+    await this.pool.query('INSERT INTO task_logs (task_id, time, text) VALUES (?, ?, ?)', [taskId, time, text]);
+    // 单任务日志上限 500，异步清理不阻塞
+    this.pool.query(
+      'DELETE FROM task_logs WHERE task_id = ? AND id NOT IN (SELECT id FROM (SELECT id FROM task_logs WHERE task_id = ? ORDER BY id DESC LIMIT 500) AS t)',
+      [taskId, taskId]
+    ).catch(e => console.warn('cleanupLogs 失败: ' + (e.message || e)));
   }
 
   /** 查任务日志 */
@@ -134,6 +139,19 @@ export class StudyTaskDAO {
       'UPDATE study_tasks SET status = ?, error = ?, finished_at = NOW() WHERE id = ?',
       ['failed', errorMsg, taskId]
     );
+  }
+
+  /** 清理 7 天前的旧任务及关联日志 */
+  async cleanupOldTasks(days = 7) {
+    const [r1] = await this.pool.query(
+      'DELETE FROM task_logs WHERE task_id IN (SELECT id FROM study_tasks WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY))',
+      [days]
+    );
+    const [r2] = await this.pool.query(
+      'DELETE FROM study_tasks WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)',
+      [days]
+    );
+    return { deletedLogs: r1.affectedRows || 0, deletedTasks: r2.affectedRows || 0 };
   }
 }
 

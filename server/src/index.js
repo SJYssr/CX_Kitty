@@ -114,3 +114,15 @@ app.listen(PORT, () => {
     console.log(`  ⚠️ 前端未构建，开发请运行: cd client && npm run dev`);
   }
 });
+
+// 定时清理：每小时删除 7 天前的旧任务及日志
+setInterval(async () => {
+  try {
+    const { deletedLogs, deletedTasks } = await StudyTask.cleanupOldTasks(7);
+    if (deletedTasks > 0 || deletedLogs > 0) {
+      console.log(`🧹 定时清理: ${deletedTasks} 个旧任务, ${deletedLogs} 条旧日志`);
+    }
+  } catch (e) {
+    console.warn('定时清理失败:', e.message);
+  }
+}, 3600000);

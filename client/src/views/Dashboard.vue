@@ -63,6 +63,19 @@
               <div class="course-summary">课程进度: {{ courseSummary.completed }}/{{ courseSummary.total }}</div>
             </div>
 
+            <!-- 当前视频进度（支持并发多视频） -->
+            <div v-for="v in currentVideos" :key="v.name" class="video-progress">
+              <div class="video-name">{{ v.name }}</div>
+              <div class="video-bar">
+                <el-progress
+                  :percentage="v.percent"
+                  :stroke-width="4"
+                  :show-text="false"
+                />
+              </div>
+              <div class="video-detail">{{ formatTime(v.currentTime) }} / {{ formatTime(v.duration) }}</div>
+            </div>
+
             <!-- 实时日志 -->
             <div ref="logContainer" class="log-container">
               <div v-if="taskLogs.length">
@@ -169,6 +182,7 @@ const detailTask = ref(null)
 const courseTableRef = ref(null)
 const logContainer = ref(null)
 const liveLogs = ref([])
+const currentVideos = ref([])  // [{ name, currentTime, duration, percent }]
 let timer = null
 let loadTimer = null
 let sseSource = null
@@ -210,14 +224,25 @@ async function connectSSE(taskId) {
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
   // 重连时清空内存日志，由 historyLogs（DB）作为唯一数据源
   liveLogs.value = []
+  currentVideos.value = []
 
   const saved = JSON.parse(localStorage.getItem('cx_account') || '{}')
   const source = new EventSource('/api/study/logs/' + taskId + '?token=' + (saved.token || ''))
   source.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data)
-      liveLogs.value.push(entry)
-      if (liveLogs.value.length > 300) liveLogs.value = liveLogs.value.slice(-200)
+      if (entry.type === 'video_progress' && Array.isArray(entry.videos)) {
+        currentVideos.value = entry.videos.map(v => ({
+          name: v.name,
+          currentTime: v.currentTime,
+          duration: v.duration,
+          percent: v.duration > 0 ? Math.round(v.currentTime / v.duration * 100) : 0
+        }))
+      } else {
+        // log or legacy format
+        liveLogs.value.push(entry)
+        if (liveLogs.value.length > 300) liveLogs.value = liveLogs.value.slice(-200)
+      }
     } catch {}
   }
   source.onerror = () => {
@@ -232,6 +257,13 @@ async function connectSSE(taskId) {
 function disconnectSSE() {
   if (sseSource) { sseSource.close(); sseSource = null }
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
+  currentVideos.value = []
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 const detailCourses = computed(() => {
@@ -616,6 +648,9 @@ onUnmounted(() => {
 .course-bar { margin-bottom: 2px; }
 .waiting-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.06); }
 .course-summary { font-size: 11px; color: rgba(255,255,255,0.5); text-align: right; margin-top: 2px; }
+.video-progress { margin: 6px 0; padding: 5px 10px; background: rgba(99,102,241,0.12); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); }
+.video-name { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.video-detail { font-size: 10px; color: rgba(255,255,255,0.4); text-align: right; margin-top: 1px; }
 
 /* 表格毛玻璃 */
 :deep(.el-table) { background: transparent; color: #fff; }
