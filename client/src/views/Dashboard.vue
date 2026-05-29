@@ -204,14 +204,13 @@ const taskLogs = computed(() => {
 let sseReconnectTimer = null
 
 async function connectSSE(taskId) {
-  // 先加载 DB 历史日志，再建 SSE 连接，避免竞态
-  await loadHistoryLogs(taskId)
   // 清理旧连接
   if (sseSource) { sseSource.close(); sseSource = null }
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null }
-  // 重连时清空内存日志，由 historyLogs（DB）作为唯一数据源
   liveLogs.value = []
-  currentVideos.value = []
+
+  // 历史日志和 SSE 并行加载，不阻塞视频进度推送
+  loadHistoryLogs(taskId)
 
   const saved = JSON.parse(localStorage.getItem('cx_account') || '{}')
   const source = new EventSource('/api/study/logs/' + taskId + '?token=' + (saved.token || ''))
@@ -449,20 +448,29 @@ async function loadCourses(force = false) {
   } catch (e) { console.warn("loadCourses:", e?.message) } finally { loadingCourses.value = false }
 }
 
+async function pollStatus(taskId) {
+  try {
+    const r = await axios.get('/api/study/status/' + taskId)
+    if (r.data.success && r.data.task) {
+      currentTask.value = r.data.task
+      if (r.data.videos && r.data.videos.length > 0) {
+        currentVideos.value = r.data.videos.map(v => ({
+          name: v.name, currentTime: v.currentTime, duration: v.duration,
+          percent: v.duration > 0 ? Math.round(v.currentTime / v.duration * 100) : 0
+        }))
+      }
+      if (['completed','failed'].includes(r.data.task.status)) {
+        clearInterval(timer); timer = null; disconnectSSE(); loadTasks()
+      }
+    }
+  } catch (e) { console.warn("pollStatus:", e?.message) }
+}
+
 function startPolling(taskId) {
   connectSSE(taskId)
-  if (timer) clearInterval(timer);
-  timer = setInterval(async () => {
-    try {
-      const r = await axios.get('/api/study/status/' + taskId)
-      if (r.data.success && r.data.task) {
-        currentTask.value = r.data.task
-        if (['completed','failed'].includes(r.data.task.status)) {
-          clearInterval(timer); timer = null; disconnectSSE(); loadTasks()
-        }
-      }
-    } catch (e) { console.warn("loadCourses cb:", e?.message) }
-  }, 3000)
+  if (timer) clearInterval(timer)
+  pollStatus(taskId)  // 立即拉取，不等3秒
+  timer = setInterval(() => pollStatus(taskId), 3000)
 }
 
 async function loadTasks() {
@@ -633,7 +641,7 @@ onUnmounted(() => {
 :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
 .task-log-panel { height: 470px; display: flex; flex-direction: column; overflow: hidden; }
 
-.course-progress { flex-shrink: 0; margin-bottom: 6px; }
+.course-progress { flex-shrink: 0; margin-bottom: 0; }
 .course-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #fff; }
 .course-row { display: flex; align-items: center; gap: 10px; }
 .course-bar { flex: 1; }
@@ -645,7 +653,8 @@ onUnmounted(() => {
 .log-time { color: rgba(255,255,255,0.4); margin-right: 8px; }
 .log-text { color: rgba(255,255,255,0.85); }
 
-.video-progress { display: flex; align-items: center; gap: 6px; margin: 3px 0; padding: 2px 8px; background: rgba(99,102,241,0.12); border-radius: 4px; }
+.video-progress { display: flex; align-items: center; gap: 6px; margin: 0; padding: 2px 8px; background: rgba(99,102,241,0.12); border-radius: 4px; }
+.video-progress + .video-progress { margin-top: 0; }
 .video-name { font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .video-bar { flex: 1; min-width: 40px; }
 .video-bar :deep(.el-progress-bar__outer) { background: rgba(255,255,255,0.1); }
@@ -669,12 +678,14 @@ onUnmounted(() => {
 :deep(.el-button--primary) { background: rgba(64,158,255,0.6); border-color: transparent; }
 :deep(.el-button--primary:hover) { background: rgba(64,158,255,0.8); }
 
-/* Dialog 毛玻璃 */
-:deep(.el-overlay) { background: transparent; }
-:deep(.el-dialog) {
-  background: rgba(255,255,255,0.12);
+/* Dialog 毛玻璃 — overlay 先渲染模糊背景，弹窗卡片叠在上面 */
+:deep(.el-overlay) {
+  background: rgba(0,0,0,0.15);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+}
+:deep(.el-dialog) {
+  background: rgba(255,255,255,0.12);
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);

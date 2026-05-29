@@ -45,6 +45,15 @@
         <el-form-item label="通知邮箱">
           <el-input v-model="form.notifyEmail" placeholder="用于接收刷课通知的邮箱" size="small" />
         </el-form-item>
+
+        <el-divider />
+
+        <el-form-item label="视频倍速">
+          <el-slider v-model="form.defaultSpeed" :min="0.5" :max="2" :step="0.1" :format-tooltip="v => v + 'x'" :disabled="!allowSpeedJobs" show-input size="small" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="并发章节数">
+          <el-slider v-model="form.defaultJobs" :min="1" :max="3" :step="1" :disabled="!allowSpeedJobs" show-input size="small" style="width:100%" />
+        </el-form-item>
         </div>
 
         <el-button type="primary" size="large" style="width:100%;margin-top:12px" :loading="saving" @click="save">
@@ -79,6 +88,8 @@ const hasKey = ref(false)
 const maskedKey = ref('')
 const editingKey = ref(false)
 
+const allowSpeedJobs = ref(true)
+
 const form = ref({
   deepseekApiKey: '',
   deepseekModel: 'deepseek-v4-flash',
@@ -86,6 +97,8 @@ const form = ref({
   autoSubmit: false,
   coverRate: 0.8,
   notifyEmail: '',
+  defaultSpeed: 1,
+  defaultJobs: 1,
 })
 
 // 自动答题关闭时，自动提交跟随置为 false
@@ -115,7 +128,9 @@ async function save() {
       enableAnswering: form.value.enableAnswering,
       autoSubmit: form.value.autoSubmit,
       coverRate: form.value.coverRate,
-      notifyEmail: form.value.notifyEmail
+      notifyEmail: form.value.notifyEmail,
+      defaultSpeed: form.value.defaultSpeed,
+      defaultJobs: form.value.defaultJobs,
     }
     // 仅在用户编辑时发送 API Key（修改或首次设置）
     if (editingKey.value && form.value.deepseekApiKey) {
@@ -135,7 +150,17 @@ async function save() {
 }
 
 onMounted(async () => {
-  // 先从数据库加载已有配置
+  // 加载系统配置（是否允许修改倍速/并发 + 系统默认值）
+  try {
+    const { data: cfg } = await axios.get('/api/system/config')
+    if (cfg.success) {
+      allowSpeedJobs.value = cfg.allow_speed_jobs
+      if (cfg.default_speed) form.value.defaultSpeed = cfg.default_speed
+      if (cfg.default_jobs) form.value.defaultJobs = cfg.default_jobs
+    }
+  } catch (e) { console.warn("loadSystemConfig:", e?.message) }
+
+  // 从数据库加载已有配置
   if (props.account?.phone) {
     try {
       const { data } = await axios.get('/api/account/config')
@@ -147,13 +172,13 @@ onMounted(async () => {
         form.value.autoSubmit = !!data.config.auto_submit
         form.value.coverRate = data.config.cover_rate ?? 0.8
         form.value.notifyEmail = data.config.notify_email || ''
-        // 不填充 API Key 到表单，只在有 key 时自动查余额
+        form.value.defaultSpeed = data.config.default_speed || 1
+        form.value.defaultJobs = data.config.default_jobs || 1
         if (hasKey.value) setTimeout(queryBalance, 500)
         return
       }
     } catch (e) { console.warn("loadConfig:", e?.message) }
   }
-  // 无本地存储的 API Key 回填
   form.value.deepseekModel = 'deepseek-v4-flash'
   form.value.enableAnswering = true
   form.value.autoSubmit = false

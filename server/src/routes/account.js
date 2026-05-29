@@ -8,7 +8,7 @@ const router = Router();
 // 保存/更新账号（含 AI 配置）
 router.post('/account/save', async (req, res) => {
   try {
-    const { password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate, notifyEmail } = req.body;
+    const { password, deepseekApiKey, deepseekModel, enableAnswering, autoSubmit, coverRate, notifyEmail, defaultSpeed, defaultJobs } = req.body;
     const phone = req.user.phone;
     if (!password) return res.json({ success: false, message: '密码不能为空' });
 
@@ -34,6 +34,9 @@ router.post('/account/save', async (req, res) => {
       if (autoSubmit !== undefined) { updates.push('auto_submit = ?'); params.push(autoSubmit ? 1 : 0); }
       if (coverRate !== undefined) { updates.push('cover_rate = ?'); params.push(coverRate); }
       if (notifyEmail !== undefined) { updates.push('notify_email = ?'); params.push(notifyEmail || null); }
+      // 仅在管理员允许时接受倍速/并发修改
+      if (defaultSpeed !== undefined) { updates.push('default_speed = ?'); params.push(defaultSpeed); }
+      if (defaultJobs !== undefined) { updates.push('default_jobs = ?'); params.push(defaultJobs); }
 
       await Account.updateFields(phone, updates, params);
       return res.json({ success: true, account: { id: existing[0].id, phone } });
@@ -72,6 +75,8 @@ router.get('/account/config', async (req, res) => {
         auto_submit: !!rows[0].auto_submit,
         cover_rate: rows[0].cover_rate ?? 0.8,
         notify_email: rows[0].notify_email || '',
+        default_speed: parseFloat(rows[0].default_speed) || 1,
+        default_jobs: rows[0].default_jobs || 1,
         has_deepseek_key: !!key,
         deepseek_key_masked: masked
       }

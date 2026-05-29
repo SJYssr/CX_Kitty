@@ -13,7 +13,10 @@ import authRoutes from './routes/auth.js';
 import studyRoutes from './routes/study.js';
 import coursesRoutes from './routes/courses.js';
 import systemRoutes from './routes/system.js';
+import adminRoutes from './routes/admin.js';
 import { sanitizeError } from './error.js';
+import { ensureAdminsTable } from './models/admin.js';
+import { ensureSettingsTable } from './models/settings.js';
 import { requireAuth } from './middleware/auth.js';
 import { StudyTask } from './models/study-task.js';
 
@@ -28,6 +31,7 @@ app.use(morgan('dev'));
 // 公开路由（无需认证）
 app.use('/api', authRoutes);
 app.use('/api', systemRoutes);
+app.use('/api', adminRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'OK', time: new Date().toISOString() });
 });
@@ -82,6 +86,10 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ success: false, message: sanitizeError(err) });
 });
+
+// 管理员表迁移 + 默认账户
+ensureAdminsTable().catch(e => console.warn('  管理员表迁移失败:', e.message));
+ensureSettingsTable().catch(e => console.warn('  系统设置表迁移失败:', e.message));
 
 // 启动时清理残留的 running 任务（上次部署留下的）
 StudyTask.cleanupStaleRunning().then(([r]) => {

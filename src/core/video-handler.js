@@ -106,8 +106,8 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
     if (process.stdout.clearLine) process.stdout.clearLine(0);
     process.stdout.write(`\r${progressStr}`);
 
-    // 视频进度推送（节流10秒），前端展示当前播放进度条
-    if (cx._onProgress && playTime - lastProgressEmit >= 10) {
+    // 视频进度推送（节流5秒），前端展示播放进度
+    if (cx._onProgress && playTime - lastProgressEmit >= 5) {
       lastProgressEmit = playTime;
       try {
         await cx._onProgress({ type: 'video_progress', name: jobName, currentTime: Math.floor(playTime), duration });

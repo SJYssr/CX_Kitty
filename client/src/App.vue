@@ -5,7 +5,7 @@
       系统负载: <span :class="taskCount >= maxTasks ? 'full' : 'ok'">{{ taskCount }}/{{ maxTasks }}</span>
     </div>
     <div class="notice-marquee">
-      <span>本项目为公益项目，服务器最大承受为50个任务，答题功能未测试，不知道效果如何，望周知。</span>
+      <span>{{ announcement }}</span>
     </div>
   </div>
 
@@ -26,6 +26,7 @@ const sessionToken = ref('')
 
 const taskCount = ref(0)
 const maxTasks = ref(50)
+const announcement = ref('')
 provide('taskCount', taskCount)
 provide('maxTasks', maxTasks)
 let countTimer = null
@@ -55,6 +56,13 @@ axios.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+async function fetchAnnouncement() {
+  try {
+    const { data } = await axios.get('/api/system/announcement')
+    if (data.success) announcement.value = data.text
+  } catch (e) { console.warn('fetchAnnouncement:', e?.message) }
+}
 
 async function fetchTaskCount() {
   try {
@@ -103,6 +111,7 @@ function onLogout() {
 
 onMounted(() => {
   fetchTaskCount()
+  fetchAnnouncement()
   countTimer = setInterval(fetchTaskCount, 1000)
   const saved = localStorage.getItem('cx_account')
   if (saved) {
@@ -115,7 +124,7 @@ onMounted(() => {
       }
       sessionToken.value = parsed.token
       account.value = parsed
-      if (route.name !== 'Dashboard') router.push('/dashboard')
+      if (route.name !== 'Dashboard' && route.name !== 'AdminLogin' && route.name !== 'AdminDashboard') router.push('/dashboard')
       // 异步验证 token 有效性（检测是否被顶号），失败则踢回登录
       axios.get('/api/auth/verify').then(({ data }) => {
         if (!data.success) {
