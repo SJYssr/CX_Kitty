@@ -23,8 +23,8 @@ const API_FACE_IMAGE = 'https://passport2-api.chaoxing.com/api/getUserFaceid';
 const API_FACE_SUBMIT = 'https://mooc1-api.chaoxing.com/mooc-ans/knowledge/uploadInfo';
 const API_FACE_SUBMIT_NEW = 'https://mooc1-api.chaoxing.com/mooc-ans/facephoto/clientfacecheckstatus';
 
-// 移动端 UA — 人脸相关接口需要使用 APP UA
-const MOBILE_UA = 'Dalvik/2.1.0 (Linux; U; Android 11; MI11 Build/SKQ1.211006.001) (device:MI11) Language/zh_CN com.chaoxing.mobile/ChaoXingStudy_3_6.3.9_android_phone_10824_250';
+// 移动端 UA 已统一由 config.js 全局提供 (cfg.headers / cfg.videoHeaders)
+// 含随机设备参数 + X-Requested-With: com.chaoxing.mobile，对齐 Python CxKitty
 
 // === 工具函数 ===
 
@@ -101,7 +101,7 @@ export async function fetchPreUploadedFace(cx) {
     await cx.rateLimiter.acquire({ random: { min: 0, max: 1000 } });
     const resp = await cx.axios.get(API_FACE_IMAGE, {
       params,
-      headers: { ...cfg.headers, 'User-Agent': MOBILE_UA },
+      headers: cfg.headers,
       timeout: 10000,
     });
 
@@ -182,7 +182,7 @@ export async function getUploadToken(cx) {
   try {
     await cx.rateLimiter.acquire({ random: { min: 0, max: 1000 } });
     const resp = await cx.axios.get(API_GET_PAN_TOKEN, {
-      headers: { ...cfg.headers, 'User-Agent': MOBILE_UA },
+      headers: cfg.headers,
       timeout: 10000,
     });
     const data = resp.data;
@@ -219,7 +219,7 @@ export async function uploadFaceImage(cx, token, puid, imagePath) {
 
     await cx.rateLimiter.acquire({ random: { min: 500, max: 2000 } });
     const resp = await cx.axios.post(url, body, {
-      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+      headers: { ...cfg.headers, 'Content-Type': `multipart/form-data; boundary=${boundary}` },
       timeout: 30000,
     });
 
