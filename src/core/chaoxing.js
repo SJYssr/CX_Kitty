@@ -153,7 +153,15 @@ export class Chaoxing {
 
   async studyDocument(course, job, jobInfo) {
     try {
-      const kid = (this._currentKnowledgeId || job.knowledgeid || (jobInfo && jobInfo.knowledgeid) || '');
+      // 对齐 Python Samueli924/chaoxing: 优先从 otherinfo 正则提取 knowledgeid
+      let kid = '';
+      if (job.otherinfo || (jobInfo && jobInfo.otherinfo)) {
+        const oi = job.otherinfo || (jobInfo && jobInfo.otherinfo) || '';
+        const m = oi.match(/nodeId_(.*?)-/);
+        if (m) kid = m[1];
+      }
+      if (!kid) kid = (this._currentKnowledgeId || job.knowledgeid || (jobInfo && jobInfo.knowledgeid) || '');
+
       const url = `https://mooc1.chaoxing.com/ananas/job/document?jobid=${job.jobid}&knowledgeid=${kid}&courseid=${course.courseId}&clazzid=${course.clazzId}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
 
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
@@ -163,6 +171,7 @@ export class Chaoxing {
         logger.info(`文档完成: ${job.name || job.jobid}`);
         return StudyResult.SUCCESS;
       }
+      logger.warn(`文档失败: HTTP ${resp.status} — ${(typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data)).substring(0, 200)}`);
       return StudyResult.ERROR;
     } catch (err) {
       logger.error(`文档失败: ${err.message}`);
@@ -172,16 +181,33 @@ export class Chaoxing {
 
   async studyRead(course, job, jobInfo) {
     try {
-      const knowledgeid = jobInfo ? jobInfo.knowledgeid : (course.knowledgeid || '');
-      const url = `https://mooc1.chaoxing.com/ananas/job/read?jobid=${job.jobid}&knowledgeid=${knowledgeid}&courseid=${course.courseId}&clazzid=${course.clazzId}&jtoken=${job.jtoken || ''}&_dc=${Date.now()}`;
+      // 对齐 Python Samueli924/chaoxing: 阅读任务使用 /readv2 端点
+      const knowledgeid = (jobInfo && jobInfo.knowledgeid) || (course.knowledgeid || '');
+      const params = {
+        jobid: job.jobid,
+        knowledgeid,
+        jtoken: job.jtoken || '',
+        courseid: course.courseId,
+        clazzid: course.clazzId,
+      };
 
       await this.rateLimiter.acquire({ random: { min: 500, max: 3000 } });
-      const resp = await this.axios.get(url, { headers: cfg.headers, timeout: 15000 });
+      const resp = await this.axios.get('https://mooc1.chaoxing.com/ananas/job/readv2', {
+        params,
+        headers: cfg.headers,
+        timeout: 15000,
+      });
 
       if (resp.status === 200) {
-        logger.info(`阅读完成: ${job.title || job.jobid}`);
+        try {
+          const json = resp.data && typeof resp.data === 'object' ? resp.data : JSON.parse(resp.data);
+          logger.info(`阅读完成: ${job.title || job.jobid} — ${json.msg || ''}`);
+        } catch {
+          logger.info(`阅读完成: ${job.title || job.jobid}`);
+        }
         return StudyResult.SUCCESS;
       }
+      logger.warn(`阅读失败: HTTP ${resp.status} — ${(typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data)).substring(0, 200)}`);
       return StudyResult.ERROR;
     } catch (err) {
       logger.error(`阅读失败: ${err.message}`);
