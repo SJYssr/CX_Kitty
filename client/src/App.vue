@@ -36,8 +36,9 @@ const showTopBar = computed(() => route.name === 'Login' || route.name === 'Regi
 const SESSION_DURATION = 30 * 60 * 1000
 
 // axios 拦截器：自动附加 token，401 → 退出登录
+// 注意：管理后台 API (/api/admin/*) 使用独立的 admin_token，不附加用户 session_token
 axios.interceptors.request.use(config => {
-  if (sessionToken.value) {
+  if (sessionToken.value && !config.url?.startsWith('/api/admin/')) {
     config.headers.Authorization = 'Bearer ' + sessionToken.value
   }
   return config

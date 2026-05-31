@@ -391,6 +391,7 @@ onMounted(async () => {
 
 function logout() {
   localStorage.removeItem('admin_token')
+  delete axios.defaults.headers.common['Authorization']
   router.push('/admin')
 }
 </script>
