@@ -34,6 +34,7 @@ export async function runStudy(params) {
 
   let _terminated = false;
   let _progressLock = Promise.resolve();
+  let _logQueue = Promise.resolve();
 
   const abortController = new AbortController();
   bus.once('terminate:' + taskId, () => {
@@ -92,7 +93,10 @@ export async function runStudy(params) {
       if (_terminated) return;
       const entry = { t: new Date().toLocaleTimeString('zh-CN', { hour12: false }), text: msg.text };
       bus.emit('log:' + taskId, entry);
-      StudyTask.insertLog(taskId, entry.t, entry.text).catch(e =>
+      // 串行化 DB 写入，保证日志顺序；SSE 已即时推送，不阻塞前端
+      _logQueue = _logQueue.then(() =>
+        StudyTask.insertLog(taskId, entry.t, entry.text)
+      ).catch(e =>
         console.warn('insertLog 失败: ' + (e.message || e))
       );
       return;

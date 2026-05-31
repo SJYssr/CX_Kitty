@@ -83,7 +83,9 @@ export async function studyVideo(cx, course, job, jobInfo, speed = 1, type = 'Vi
 
     // 每 waitTime 秒视频时间发送一次心跳, 或到达 duration 时也发送 (可能需要多次才能完成)
     if (playTime - lastLogTime >= waitTime || playTime >= duration) {
-      const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, 3);
+      // 模拟正常播放: 首次 isdrag=0(点击播放), 中间 isdrag=0(正常上报), 结束时 isdrag=2(播放完毕)
+      const _isdrag = playTime >= duration ? 2 : 0;
+      const result = await videoProgressLog(cx, course, job, jobInfo, currentDtoken, duration, Math.floor(playTime), type, _isdrag);
       if (result.status === -1) { _notifyVideoDone(); return StudyResult.SUCCESS; }
       if (result.status === 403) {
         logger.warn(`${jobName} 403, 跳过`); _notifyVideoDone(); return StudyResult.FORBIDDEN;
@@ -194,7 +196,7 @@ async function _completeDownloadJob(cx, course, job, jobInfo, duration, type = '
     if (resp.status === 200) return true;
   } catch (e) { logger.warn(`update-video-course-summary 失败: ${e.message}`); }
   try {
-    const result = await videoProgressLog(cx, course, job, jobInfo, '', duration || 1, duration || 1, type, 3);
+    const result = await videoProgressLog(cx, course, job, jobInfo, '', duration || 1, duration || 1, type, 2);
     return result.passed;
   } catch (e) { logger.warn(`下载视频心跳失败: ${e.message}`); }
   return false;
